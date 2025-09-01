@@ -1,0 +1,2169 @@
+==== lib\app.dart ====
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'config/app_config.dart';
+import 'providers/tracking_provider.dart';
+import 'providers/route_provider.dart';
+import 'services/storage_service.dart';
+import 'screens/home_screen.dart';
+import 'screens/favorites_screen.dart';
+import 'screens/settings_screen.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+
+class App extends StatelessWidget {
+  const App({Key? key}) : super(key: key);
+
+  Future<List> _loadInitialFavorites() async {
+    await StorageService.instance.init();
+    return await StorageService.instance.getFavoriteRoutes();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // final locale = const Locale('ar'); // default Arabic
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => TrackingProvider()),
+        ChangeNotifierProvider(create: (_) => RouteProvider()),
+        FutureProvider<List?>(
+          create: (_) => _loadInitialFavorites(),
+          initialData: const [],
+        ),
+      ],
+      child: MaterialApp(
+  debugShowCheckedModeBanner: false,
+  title: 'AlexTransportation',
+  locale: const Locale('ar'),
+  localizationsDelegates: const [
+    GlobalMaterialLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+  ],
+  supportedLocales: const [
+    Locale('ar'),
+    Locale('en'),
+  ],
+  theme: ThemeData.light(),
+  darkTheme: ThemeData.dark(),
+  themeMode: AppConfig.defaultNightMode ? ThemeMode.dark : ThemeMode.light,
+  initialRoute: '/',
+  routes: {
+    '/': (_) => const HomeScreen(),
+    '/favorites': (_) => const FavoritesScreen(),
+    '/settings': (_) => const SettingsScreen(),
+  },
+),
+    );
+  }
+}
+
+
+
+==== lib\config\app_config.dart ====
+import 'package:flutter/foundation.dart';
+
+class AppConfig {
+  static String orsApiKey = '';
+  static String osrmBaseUrl = 'https://router.project-osrm.org';
+  static String hiveBoxName = 'favorites_box';
+  static String notificationIcon = 'app_icon';
+  static bool defaultNightMode = false;
+
+  static Map<String, double> defaultSpeedThresholds = const {
+    'stationary': 0.5,
+    'walking': 2.0,
+    'driving': 6.0,
+  };
+
+  static void loadFromEnv(Map<String, String> env) {
+    if (env.containsKey('ORS_API_KEY')) {
+      orsApiKey = env['ORS_API_KEY'] ?? '';
+    }
+    if (env.containsKey('OSRM_BASE_URL')) {
+      osrmBaseUrl = env['OSRM_BASE_URL'] ?? osrmBaseUrl;
+    }
+    if (env.containsKey('HIVE_BOX_NAME')) {
+      hiveBoxName = env['HIVE_BOX_NAME'] ?? hiveBoxName;
+    }
+    if (env.containsKey('NOTIFICATION_ICON')) {
+      notificationIcon = env['NOTIFICATION_ICON'] ?? notificationIcon;
+    }
+    // debug print
+    if (kDebugMode) {
+      // ignore: avoid_print
+      print('AppConfig loaded: ORS key set: ${orsApiKey.isNotEmpty}');
+    }
+  }
+}
+
+
+
+==== lib\config\constants.dart ====
+class Constants {
+  static const double STATIONARY_THRESHOLD = 0.5; // m/s
+  static const double WALKING_THRESHOLD = 2.0; // m/s
+  static const double DRIVING_THRESHOLD = 6.0; // m/s
+
+  static const double ARRIVAL_ALERT_DISTANCE = 150.0; // meters
+
+  static const String OSM_TILE_URL =
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  static const String NIGHT_TILE_URL =
+      'https://tiles.wmflabs.org/bw-mapnik/{z}/{x}/{y}.png';
+
+  // Colors (hex)
+  static const int WALK_TO_COLOR = 0xFF2196F3; // blue
+  static const int TRANSIT_COLOR = 0xFFF44336; // red
+  static const int WALK_FROM_COLOR = 0xFF4CAF50; // green
+
+  static const List<int> DASH_ARRAY = [6, 6];
+}
+
+
+
+==== lib\data\stations_repository.dart ====
+import 'dart:convert';
+import 'package:flutter/services.dart';
+import '../models/station_model.dart';
+import '../models/lat_lng.dart';
+
+class StationsRepository {
+  static Future<List<StationModel>> loadStations() async {
+    final jsonStr = await rootBundle.loadString('assets/alexandria_stations.json');
+    final list = jsonDecode(jsonStr) as List;
+    return list.map((e) => StationModel.fromJson(Map<String, dynamic>.from(e))).toList();
+  }
+
+  static Future<void> updateStationsFromRemote(String url) async {
+    // Not implemented for demo. Would fetch via http and replace cached file or internal storage.
+  }
+
+  static LatLng? getLastKnownLocation() {
+    // For demo return a fixed central Alexandria point
+    return LatLng(31.21564, 29.95527);
+  }
+}
+
+
+
+==== lib\db\hive_adapters.dart ====
+import 'package:hive/hive.dart';
+import '../models/route_model.dart';
+import '../models/leg_model.dart';
+import '../models/station_model.dart';
+import '../models/traffic_sample_model.dart';
+import '../models/lat_lng.dart';
+
+
+// We'll implement TypeAdapters manually to avoid build_runner for this sample.
+// However Hive needs generated adapters normally. For this example we'll create simple adapters.
+
+class LatLngAdapter extends TypeAdapter<LatLng> {
+  @override
+  final int typeId = 10;
+
+  @override
+  LatLng read(BinaryReader reader) {
+    final lat = reader.readDouble();
+    final lon = reader.readDouble();
+    return LatLng(lat, lon);
+  }
+
+  @override
+  void write(BinaryWriter writer, LatLng obj) {
+    writer.writeDouble(obj.latitude);
+    writer.writeDouble(obj.longitude);
+  }
+}
+
+class LegModelAdapter extends TypeAdapter<dynamic> {
+  @override
+  final int typeId = 2;
+
+  @override
+  dynamic read(BinaryReader reader) {
+    final typeIndex = reader.readByte();
+    final type = LegType.values[typeIndex];
+    final distance = reader.readDouble();
+    final duration = reader.readInt();
+    final geomLen = reader.readInt();
+    final geometry = <LatLng>[];
+    for (var i = 0; i < geomLen; i++) {
+      final lat = reader.readDouble();
+      final lon = reader.readDouble();
+      geometry.add(LatLng(lat, lon));
+    }
+    final start = reader.readString();
+    final end = reader.readString();
+    return LegModel(
+      type: type,
+      distanceMeters: distance,
+      durationSeconds: duration,
+      geometry: geometry,
+      startStationId: start.isEmpty ? null : start,
+      endStationId: end.isEmpty ? null : end,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, obj) {
+    writer.writeByte(obj.type.index);
+    writer.writeDouble(obj.distanceMeters);
+    writer.writeInt(obj.durationSeconds);
+    writer.writeInt(obj.geometry.length);
+    for (final p in obj.geometry) {
+      writer.writeDouble(p.latitude);
+      writer.writeDouble(p.longitude);
+    }
+    writer.writeString(obj.startStationId ?? '');
+    writer.writeString(obj.endStationId ?? '');
+  }
+}
+
+class RouteModelAdapter extends TypeAdapter<RouteModel> {
+  @override
+  final int typeId = 1;
+
+  @override
+  RouteModel read(BinaryReader reader) {
+    final id = reader.readString();
+    final originLat = reader.readDouble();
+    final originLon = reader.readDouble();
+    final destLat = reader.readDouble();
+    final destLon = reader.readDouble();
+    final legsCount = reader.readInt();
+    final legs = <LegModel>[];
+    for (var i = 0; i < legsCount; i++) {
+      // Use LegModelAdapter logic: read byte etc.
+      final typeIndex = reader.readByte();
+      final type = LegType.values[typeIndex];
+      final distance = reader.readDouble();
+      final duration = reader.readInt();
+      final geomLen = reader.readInt();
+      final geometry = <LatLng>[];
+      for (var j = 0; j < geomLen; j++) {
+        final lat = reader.readDouble();
+        final lon = reader.readDouble();
+        geometry.add(LatLng(lat, lon));
+      }
+      final start = reader.readString();
+      final end = reader.readString();
+      legs.add(LegModel(
+        type: type,
+        distanceMeters: distance,
+        durationSeconds: duration,
+        geometry: geometry,
+        startStationId: start.isEmpty ? null : start,
+        endStationId: end.isEmpty ? null : end,
+      ),);
+    }
+    final totalDistance = reader.readDouble();
+    final totalDuration = reader.readInt();
+    final createdAtIso = reader.readString();
+    final createdAt = DateTime.parse(createdAtIso).toUtc();
+    return RouteModel(
+      id: id,
+      origin: LatLng(originLat, originLon),
+      destination: LatLng(destLat, destLon),
+      legs: legs,
+      totalDistanceMeters: totalDistance,
+      totalDurationSeconds: totalDuration,
+      createdAt: createdAt,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, RouteModel obj) {
+    writer.writeString(obj.id);
+    writer.writeDouble(obj.origin.latitude);
+    writer.writeDouble(obj.origin.longitude);
+    writer.writeDouble(obj.destination.latitude);
+    writer.writeDouble(obj.destination.longitude);
+    writer.writeInt(obj.legs.length);
+    for (final l in obj.legs) {
+      writer.writeByte(l.type.index);
+      writer.writeDouble(l.distanceMeters);
+      writer.writeInt(l.durationSeconds);
+      writer.writeInt(l.geometry.length);
+      for (final p in l.geometry) {
+        writer.writeDouble(p.latitude);
+        writer.writeDouble(p.longitude);
+      }
+      writer.writeString(l.startStationId ?? '');
+      writer.writeString(l.endStationId ?? '');
+    }
+    writer.writeDouble(obj.totalDistanceMeters);
+    writer.writeInt(obj.totalDurationSeconds);
+    writer.writeString(obj.createdAt.toIso8601String());
+  }
+}
+
+class StationModelAdapter extends TypeAdapter<StationModel> {
+  @override
+  final int typeId = 3;
+
+  @override
+  StationModel read(BinaryReader reader) {
+    final id = reader.readString();
+    final name = reader.readString();
+    final lat = reader.readDouble();
+    final lon = reader.readDouble();
+    final typeIndex = reader.readByte();
+    final attrsLen = reader.readInt();
+    final attrs = <String, String>{};
+    for (var i = 0; i < attrsLen; i++) {
+      final k = reader.readString();
+      final v = reader.readString();
+      attrs[k] = v;
+    }
+    final type = StationType.values[typeIndex];
+    return StationModel(
+      id: id,
+      name: name,
+      location: LatLng(lat, lon),
+      type: type,
+      attributes: attrs,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, StationModel obj) {
+    writer.writeString(obj.id);
+    writer.writeString(obj.name);
+    writer.writeDouble(obj.location.latitude);
+    writer.writeDouble(obj.location.longitude);
+    writer.writeByte(obj.type.index);
+    writer.writeInt(obj.attributes.length);
+    obj.attributes.forEach((k, v) {
+      writer.writeString(k);
+      writer.writeString(v);
+    });
+  }
+}
+
+class TrafficSampleAdapter extends TypeAdapter<dynamic> {
+  @override
+  final int typeId = 4;
+
+  @override
+  dynamic read(BinaryReader reader) {
+    final id = reader.readString();
+    final pathHash = reader.readString();
+    final timestamp = DateTime.parse(reader.readString()).toUtc();
+    final avgSpeed = reader.readDouble();
+    final duration = reader.readInt();
+    final legTypeIndex = reader.readByte();
+    final metaLen = reader.readInt();
+    final meta = <String, String>{};
+    for (var i = 0; i < metaLen; i++) {
+      final k = reader.readString();
+      final v = reader.readString();
+      meta[k] = v;
+    }
+    return TrafficSample(
+      id: id,
+      pathHash: pathHash,
+      timestampUtc: timestamp,
+      averageSpeedMps: avgSpeed,
+      durationSeconds: duration,
+      legType: LegType.values[legTypeIndex],
+      metadata: meta,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, obj) {
+    writer.writeString(obj.id);
+    writer.writeString(obj.pathHash);
+    writer.writeString(obj.timestampUtc.toIso8601String());
+    writer.writeDouble(obj.averageSpeedMps);
+    writer.writeInt(obj.durationSeconds);
+    writer.writeByte(obj.legType.index);
+    writer.writeInt(obj.metadata.length);
+    obj.metadata.forEach((k, v) {
+      writer.writeString(k);
+      writer.writeString(v);
+    });
+  }
+}
+
+void registerAdapters() {
+  Hive.registerAdapter(RouteModelAdapter());
+  Hive.registerAdapter(LegModelAdapter());
+  Hive.registerAdapter(StationModelAdapter());
+  Hive.registerAdapter(TrafficSampleAdapter());
+  Hive.registerAdapter(LatLngAdapter());
+}
+
+
+
+==== lib\localization\strings.dart ====
+import 'dart:convert';
+import 'package:flutter/services.dart';
+
+class Strings {
+  static Map<String, Map<String, String>> _translations = {
+    'start_stop_tracking': {'ar': 'تشغيل/إيقاف تتبع الموقع', 'en': 'Start/Stop Tracking'},
+    'go_to_destination': {'ar': 'اذهب إلى هذا المكان', 'en': 'Go To Destination'},
+    'night_mode': {'ar': 'وضع ليلي', 'en': 'Night Mode'},
+  };
+
+  static Future<void> loadFromAssets() async {
+    try {
+      final data = await rootBundle.loadString('assets/translations.json');
+      final map = jsonDecode(data) as Map<String, dynamic>;
+      _translations.clear();
+      map.forEach((k, v) {
+        _translations[k] = (v as Map).map((kk, vv) => MapEntry(kk as String, vv as String));
+      });
+    } catch (_) {}
+  }
+
+  static String t(String key, String locale) {
+    final map = _translations[key];
+    if (map == null) return key;
+    return map[locale] ?? map['en'] ?? key;
+  }
+}
+
+
+
+==== lib\main.dart ====
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'config/app_config.dart';
+import 'app.dart';
+import 'db/hive_adapters.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment from Platform.environment if present. Fallbacks are in AppConfig.
+  try {
+    final env = Platform.environment;
+    AppConfig.loadFromEnv(env);
+  } catch (_) {
+    // Non-critical on platforms without full env
+  }
+
+  await Hive.initFlutter();
+  registerAdapters();
+  await Hive.openBox(AppConfig.hiveBoxName);
+  await Hive.openBox('settings_box');
+  await Hive.openBox('traffic_samples');
+
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp])
+      .then((_) {
+    runApp(const App());
+  });
+}
+
+
+
+==== lib\models\lat_lng.dart ====
+import 'dart:math';
+
+class LatLng {
+  final double latitude;
+  final double longitude;
+
+  LatLng(this.latitude, this.longitude);
+
+  Map<String, dynamic> toJson() => {
+        'lat': latitude,
+        'lon': longitude,
+      };
+
+  factory LatLng.fromJson(Map<String, dynamic> json) {
+    final lat = (json['lat'] ?? json['latitude'] ?? json['lat']) as num?;
+    final lon = (json['lon'] ?? json['longitude'] ?? json['lon']) as num?;
+    return LatLng((lat ?? 0).toDouble(), (lon ?? 0).toDouble());
+  }
+
+  double distanceTo(LatLng other) {
+    // Haversine formula
+    const earthRadius = 6371000.0; // meters
+    final dLat = _toRadians(other.latitude - latitude);
+    final dLon = _toRadians(other.longitude - longitude);
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_toRadians(latitude)) *
+            cos(_toRadians(other.latitude)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadius * c;
+  }
+
+  static double _toRadians(double degree) => degree * pi / 180.0;
+
+  @override
+  bool operator ==(Object other) =>
+      other is LatLng &&
+      other.latitude == latitude &&
+      other.longitude == longitude;
+
+  @override
+  int get hashCode => latitude.hashCode ^ longitude.hashCode;
+
+  @override
+  String toString() => 'LatLng($latitude, $longitude)';
+}
+
+
+
+==== lib\models\leg_model.dart ====
+import 'lat_lng.dart';
+
+enum LegType { walk_to, transit, walk_from }
+
+class LegModel {
+  final LegType type;
+  final double distanceMeters;
+  final int durationSeconds;
+  final List<LatLng> geometry;
+  final String? startStationId;
+  final String? endStationId;
+
+  LegModel({
+    required this.type,
+    required this.distanceMeters,
+    required this.durationSeconds,
+    required this.geometry,
+    this.startStationId,
+    this.endStationId,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'type': type.name,
+        'distanceMeters': distanceMeters,
+        'durationSeconds': durationSeconds,
+        'geometry': geometry.map((e) => e.toJson()).toList(),
+        'startStationId': startStationId,
+        'endStationId': endStationId,
+      };
+
+  factory LegModel.fromJson(Map<String, dynamic> json) {
+    final typeStr = json['type'] as String? ?? 'walk_to';
+    final type = LegType.values.firstWhere((e) => e.name == typeStr,
+        orElse: () => LegType.walk_to,);
+    final geometry = <LatLng>[];
+    if (json['geometry'] is List) {
+      for (final p in json['geometry'] as List) {
+        if (p is Map) {
+          geometry.add(LatLng.fromJson(p as Map<String, dynamic>));
+        }
+      }
+    }
+    return LegModel(
+      type: type,
+      distanceMeters: (json['distanceMeters'] as num?)?.toDouble() ?? 0.0,
+      durationSeconds: (json['durationSeconds'] as num?)?.toInt() ?? 0,
+      geometry: geometry,
+      startStationId: json['startStationId'] as String?,
+      endStationId: json['endStationId'] as String?,
+    );
+  }
+
+  String getDurationHumanReadable() {
+    final minutes = (durationSeconds / 60).round();
+    return '$minutes دقيقة';
+  }
+}
+
+
+
+==== lib\models\route_model.dart ====
+import 'package:uuid/uuid.dart';
+import 'lat_lng.dart';
+import 'leg_model.dart';
+
+class RouteModel {
+  final String id;
+  final LatLng origin;
+  final LatLng destination;
+  final List<LegModel> legs;
+  double totalDistanceMeters;
+  int totalDurationSeconds;
+  final DateTime createdAt;
+
+  RouteModel({
+    String? id,
+    required this.origin,
+    required this.destination,
+    this.legs = const [],
+    double? totalDistanceMeters,
+    int? totalDurationSeconds,
+    DateTime? createdAt,
+  })  : id = id ?? const Uuid().v4(),
+        totalDistanceMeters = totalDistanceMeters ?? 0.0,
+        totalDurationSeconds = totalDurationSeconds ?? 0,
+        createdAt = createdAt ?? DateTime.now().toUtc();
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'origin': origin.toJson(),
+        'destination': destination.toJson(),
+        'legs': legs.map((l) => l.toJson()).toList(),
+        'totalDistanceMeters': totalDistanceMeters,
+        'totalDurationSeconds': totalDurationSeconds,
+        'createdAt': createdAt.toIso8601String(),
+      };
+
+  factory RouteModel.fromJson(Map<String, dynamic> json) {
+    final origin = LatLng.fromJson(json['origin'] as Map<String, dynamic>);
+    final dest =
+        LatLng.fromJson(json['destination'] as Map<String, dynamic>);
+    final legs = <dynamic>[];
+    if (json['legs'] is List) {
+      legs.addAll(json['legs'] as List);
+    }
+    final legModels = legs
+        .whereType<Map<String, dynamic>>()
+        .map((m) => LegModel.fromJson(m))
+        .toList();
+    return RouteModel(
+      id: json['id'] as String?,
+      origin: origin,
+      destination: dest,
+      legs: legModels,
+      totalDistanceMeters:
+          (json['totalDistanceMeters'] as num?)?.toDouble() ?? 0.0,
+      totalDurationSeconds: (json['totalDurationSeconds'] as num?)?.toInt() ?? 0,
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String).toUtc()
+          : DateTime.now().toUtc(),
+    );
+  }
+
+  void computeTotals() {
+    totalDistanceMeters = legs.fold<double>(0.0, (sum, l) => sum + l.distanceMeters);
+    totalDurationSeconds = legs.fold<int>(0, (sum, l) => sum + l.durationSeconds);
+  }
+}
+
+
+
+==== lib\models\station_model.dart ====
+import 'lat_lng.dart';
+
+enum StationType { bus, tram, metro, ferry }
+
+class StationModel {
+  final String id;
+  final String name;
+  final LatLng location;
+  final StationType type;
+  final Map<String, String> attributes;
+
+  StationModel({
+    required this.id,
+    required this.name,
+    required this.location,
+    required this.type,
+    this.attributes = const {},
+  });
+
+  factory StationModel.fromJson(Map<String, dynamic> json) {
+    final typeStr = (json['type'] as String?) ?? 'bus';
+    StationType type;
+    switch (typeStr) {
+      case 'tram':
+        type = StationType.tram;
+        break;
+      case 'metro':
+        type = StationType.metro;
+        break;
+      case 'ferry':
+        type = StationType.ferry;
+        break;
+      default:
+        type = StationType.bus;
+    }
+    final loc = (json['location'] is Map)
+        ? LatLng.fromJson(json['location'] as Map<String, dynamic>)
+        : LatLng(0, 0);
+    final attrs = <String, String>{};
+    if (json['attributes'] is Map) {
+      (json['attributes'] as Map).forEach((k, v) {
+        attrs['$k'] = '$v';
+      });
+    }
+    return StationModel(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      location: loc,
+      type: type,
+      attributes: attrs,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'location': location.toJson(),
+        'type': type.name,
+        'attributes': attributes,
+      };
+}
+
+
+
+==== lib\models\traffic_sample_model.dart ====
+import 'leg_model.dart';
+
+class TrafficSample {
+  final String id;
+  final String pathHash;
+  final DateTime timestampUtc;
+  final double averageSpeedMps;
+  final int durationSeconds;
+  final LegType legType;
+  final Map<String, String> metadata;
+
+  TrafficSample({
+    required this.id,
+    required this.pathHash,
+    required this.timestampUtc,
+    required this.averageSpeedMps,
+    required this.durationSeconds,
+    required this.legType,
+    this.metadata = const {},
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'pathHash': pathHash,
+        'timestampUtc': timestampUtc.toIso8601String(),
+        'averageSpeedMps': averageSpeedMps,
+        'durationSeconds': durationSeconds,
+        'legType': legType.name,
+        'metadata': metadata,
+      };
+
+  factory TrafficSample.fromJson(Map<String, dynamic> json) {
+    final legTypeStr = json['legType'] as String? ?? LegType.transit.name;
+    final legType = LegType.values
+        .firstWhere((e) => e.name == legTypeStr, orElse: () => LegType.transit);
+    return TrafficSample(
+      id: json['id'] as String,
+      pathHash: json['pathHash'] as String,
+      timestampUtc: DateTime.parse(json['timestampUtc'] as String).toUtc(),
+      averageSpeedMps: (json['averageSpeedMps'] as num).toDouble(),
+      durationSeconds: (json['durationSeconds'] as num).toInt(),
+      legType: legType,
+      metadata: (json['metadata'] as Map?)?.map((k, v) => MapEntry('$k', '$v')) ??
+          {},
+    );
+  }
+}
+
+
+
+==== lib\providers\route_provider.dart ====
+import 'package:flutter/material.dart';
+import '../models/route_model.dart';
+import '../services/routing_service.dart';
+import '../services/storage_service.dart';
+import '../data/stations_repository.dart';
+import '../models/lat_lng.dart';
+
+class RouteProvider extends ChangeNotifier {
+  final RoutingService _routing = RoutingService.instance;
+  final StorageService _storage = StorageService.instance;
+
+  RouteModel? activeRoute;
+  bool isLoading = false;
+  List<RouteModel> favorites = [];
+
+  Future<void> calculateAndSetRoute(LatLng destination) async {
+    isLoading = true;
+    notifyListeners();
+    try {
+      final origin = await Future.value(StationsRepository.getLastKnownLocation() ?? LatLng(31.2001, 29.9187));
+      final stations = await StationsRepository.loadStations();
+      final boarding = _routing.findNearestStation(origin, stations);
+      final alight = _routing.findNearestStation(destination, stations);
+      final route = await _routing.composeMultiLegRoute(origin, destination, boarding, alight);
+      activeRoute = route;
+      isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> saveActiveRouteAsFavorite(String name) async {
+    if (activeRoute == null) return;
+    await _storage.saveFavoriteRoute(activeRoute!);
+    await loadFavorites();
+  }
+
+  Future<void> loadFavorites() async {
+    favorites = await _storage.getFavoriteRoutes();
+    notifyListeners();
+  }
+
+  List<Map<String, dynamic>> getLegSummary() {
+    if (activeRoute == null) return [];
+    return activeRoute!.legs.map((l) {
+      return {
+        'legType': l.type.name,
+        'distanceMeters': l.distanceMeters,
+        'durationSeconds': l.durationSeconds,
+        'startStationId': l.startStationId,
+        'endStationId': l.endStationId,
+      };
+    }).toList();
+  }
+}
+
+
+
+==== lib\providers\tracking_provider.dart ====
+import 'dart:async';
+import 'package:flutter/material.dart';
+import '../services/location_service.dart';
+import '../models/lat_lng.dart';
+
+class TrackingProvider extends ChangeNotifier {
+  final LocationService _location = LocationService.instance;
+  StreamSubscription<TrackingStatus>? _sub;
+
+  bool isTracking = false;
+  LatLng? currentPosition;
+  double currentSpeedMps = 0.0;
+  String currentMode = 'ثابت';
+
+  void start() async {
+    try {
+      await _location.startTracking();
+      _sub = _location.statusStream.listen((status) {
+        currentPosition = status.position;
+        currentSpeedMps = status.speedMps;
+        currentMode = status.mode;
+        notifyListeners();
+      });
+      isTracking = true;
+      notifyListeners();
+    } catch (_) {
+      isTracking = false;
+      notifyListeners();
+    }
+  }
+
+  void stop() async {
+    await _sub?.cancel();
+    _sub = null;
+    await _location.stopTracking();
+    isTracking = false;
+    notifyListeners();
+  }
+
+  void toggle() {
+    if (isTracking) {
+      stop();
+    } else {
+      start();
+    }
+  }
+}
+
+
+
+==== lib\screens\favorites_screen.dart ====
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/route_provider.dart';
+import '../services/storage_service.dart';
+import '../models/route_model.dart';
+
+class FavoritesScreen extends StatelessWidget {
+  const FavoritesScreen({Key? key}) : super(key: key);
+
+  String _formatRoute(RouteModel r) {
+    return 'مسافة: ${(r.totalDistanceMeters / 1000).toStringAsFixed(2)} كم - ${(r.totalDurationSeconds / 60).round()} د';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rp = Provider.of<RouteProvider>(context);
+    return Scaffold(
+      appBar: AppBar(title: const Text('المسارات المفضلة')),
+      body: ListView.builder(
+        itemCount: rp.favorites.length,
+        itemBuilder: (ctx, i) {
+          final r = rp.favorites[i];
+          return Dismissible(
+            key: Key(r.id),
+            background: Container(color: Colors.red),
+            onDismissed: (d) async {
+              await StorageService.instance.deleteFavoriteRoute(r.id);
+              rp.loadFavorites();
+            },
+            child: ListTile(
+              title: Text('المسار ${i + 1}'),
+              subtitle: Text(_formatRoute(r)),
+              onTap: () {
+                rp.activeRoute = r;
+                Navigator.of(context).pop();
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+
+
+==== lib\screens\home_screen.dart ====
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../widgets/map_widget.dart';
+import '../widgets/speed_display.dart';
+import '../widgets/tracking_toggle.dart';
+import '../widgets/route_details_panel.dart';
+import '../providers/tracking_provider.dart';
+import '../providers/route_provider.dart';
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({Key? key}) : super(key: key);
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final rp = Provider.of<RouteProvider>(context, listen: false);
+    rp.loadFavorites();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final tp = Provider.of<TrackingProvider>(context, listen: false);
+    if (state == AppLifecycleState.paused) {
+      // preserve state
+    } else if (state == AppLifecycleState.resumed) {
+      // resume if needed
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tp = Provider.of<TrackingProvider>(context);
+    final rp = Provider.of<RouteProvider>(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('خريطة الإسكندرية'),
+        actions: [
+          IconButton(onPressed: () => Navigator.of(context).pushNamed('/favorites'), icon: const Icon(Icons.favorite)),
+          IconButton(onPressed: () => Navigator.of(context).pushNamed('/settings'), icon: const Icon(Icons.settings)),
+        ],
+      ),
+      body: Stack(
+        children: [
+          const MapWidget(),
+          Positioned(top: 12, left: 12, child: SpeedDisplay(speedMps: tp.currentSpeedMps, mode: tp.currentMode)),
+          Positioned(top: 12, right: 12, child: TrackingToggle(isTracking: tp.isTracking, onToggle: tp.toggle)),
+          if (rp.activeRoute != null)
+            Positioned(bottom: 12, left: 12, right: 12, child: RouteDetailsPanel(route: rp.activeRoute!)),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // center map to current user location - omitted for brevity
+        },
+        child: const Icon(Icons.my_location),
+      ),
+    );
+  }
+}
+
+
+
+==== lib\screens\route_detail_screen.dart ====
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/route_provider.dart';
+import '../providers/tracking_provider.dart';
+
+class RouteDetailScreen extends StatelessWidget {
+  final String routeId;
+  const RouteDetailScreen({Key? key, required this.routeId}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final rp = Provider.of<RouteProvider>(context);
+    final route = rp.favorites.firstWhere((r) => r.id == routeId, orElse: () => rp.activeRoute!);
+    return Scaffold(
+      appBar: AppBar(title: const Text('تفاصيل المسار')),
+      body: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Text('Origin: ${route.origin}'),
+            Text('Destination: ${route.destination}'),
+            const SizedBox(height: 12),
+            ElevatedButton(
+                onPressed: () {
+                  // start navigation
+                  final tp = Provider.of<TrackingProvider>(context, listen: false);
+                  tp.start();
+                },
+                child: const Text('بدء التنقل'),),
+            const SizedBox(height: 12),
+            Expanded(
+                child: ListView(
+              children: route.legs.map((l) {
+                return ListTile(
+                  title: Text(l.type.name),
+                  subtitle: Text('${(l.distanceMeters / 1000).toStringAsFixed(2)} كم • ${(l.durationSeconds / 60).round()} دقيقة'),
+                );
+              }).toList(),
+            ),),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+
+==== lib\screens\settings_screen.dart ====
+import 'package:flutter/material.dart';
+import '../widgets/night_mode_toggle.dart';
+import '../services/storage_service.dart';
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({Key? key}) : super(key: key);
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool nightMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final val = StorageService.instance.getSetting('night_mode');
+    nightMode = val == true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('الإعدادات')),
+      body: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          NightModeToggle(isNightMode: nightMode, onToggle: (v) {
+            setState(() => nightMode = v);
+          },),
+          const SizedBox(height: 12),
+          const ListTile(
+            title: Text('API Keys'),
+            subtitle: Text('قم بتعيين ORS_API_KEY في env أو CI'),
+          ),
+          const SizedBox(height: 12),
+          const ListTile(
+            title: Text('Notifications'),
+            subtitle: Text('تفعيل/إيقاف إشعارات الوصول'),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton(
+              onPressed: () async {
+                await StorageService.instance.setSetting('traffic_collection', false);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تحديث الإعداد')));
+              },
+              child: const Text('مسح عينات المرور'),),
+        ],
+      ),
+    );
+  }
+}
+
+
+
+==== lib\services\collect_code.dart ====
+import 'dart:io';
+
+void main() async {
+  final output = File('all_code.txt');
+  final sink = output.openWrite();
+
+  Future<void> processDirectory(Directory dir) async {
+    await for (var entity in dir.list(recursive: true, followLinks: false)) {
+      if (entity is File && entity.path.endsWith('.dart')) {
+        final relativePath = entity.path.replaceFirst('${Directory.current.path}${Platform.pathSeparator}', '');
+        sink.writeln('==== $relativePath ====');
+        sink.writeln(await entity.readAsString());
+        sink.writeln('\n');
+      }
+    }
+  }
+
+  final libDir = Directory('lib');
+  if (await libDir.exists()) {
+    await processDirectory(libDir);
+    print('✅ كود المشروع اتجمع في all_code.txt');
+  } else {
+    print('❌ مجلد lib مش موجود!');
+  }
+
+  await sink.flush();
+  await sink.close();
+}
+
+
+
+==== lib\services\location_service.dart ====
+import 'dart:async';
+import 'package:geolocator/geolocator.dart';
+import '../models/lat_lng.dart';
+import '../config/constants.dart';
+
+class TrackingStatus {
+  final LatLng position;
+  final double speedMps;
+  final String mode;
+
+  TrackingStatus({
+    required this.position,
+    required this.speedMps,
+    required this.mode,
+  });
+}
+
+class LocationService {
+  LocationService._internal();
+  static final LocationService instance = LocationService._internal();
+
+  final StreamController<TrackingStatus> _statusController =
+      StreamController.broadcast();
+
+  Stream<TrackingStatus> get statusStream => _statusController.stream;
+
+  Position? _lastPosition;
+  StreamSubscription<Position>? _sub;
+  double currentSpeedMps = 0.0;
+  LatLng? currentPosition;
+  String currentMode = 'ثابت';
+
+  Future<bool> _ensurePermission() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return false;
+      }
+    }
+    if (permission == LocationPermission.deniedForever) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> startTracking() async {
+    final ok = await _ensurePermission();
+    if (!ok) {
+      throw Exception('Location permission denied');
+    }
+
+    final settings = const LocationSettings(
+      accuracy: LocationAccuracy.bestForNavigation,
+      distanceFilter: 1,
+    );
+
+    _sub?.cancel();
+    _sub = Geolocator.getPositionStream(locationSettings: settings)
+        .listen((pos) {
+      _processPosition(pos);
+    }, onError: (e) {
+      // ignore errors for now
+    },);
+  }
+
+  Future<void> stopTracking() async {
+    await _sub?.cancel();
+    _sub = null;
+  }
+
+  Future<LatLng> getCurrentPosition() async {
+    final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.best,
+        timeLimit: const Duration(seconds: 10),);
+    final ll = LatLng(pos.latitude, pos.longitude);
+    currentPosition = ll;
+    currentSpeedMps = pos.speed.isFinite ? pos.speed : 0.0;
+    currentMode = _modeFromSpeed(currentSpeedMps);
+    return ll;
+  }
+
+  void _processPosition(Position pos) {
+    final now = DateTime.now().toUtc();
+    final newLatLng = LatLng(pos.latitude, pos.longitude);
+    double speed = pos.speed.isFinite ? pos.speed : 0.0;
+    if (!pos.speed.isFinite && _lastPosition != null) {
+      final last = _lastPosition!;
+      final lastTime = last.timestamp ?? now;
+      final diff = pos.timestamp.difference(lastTime).inMilliseconds ?? 1000;
+      final dist = LatLng(last.latitude, last.longitude).distanceTo(newLatLng);
+      final sec = diff / 1000;
+      if (sec > 0) {
+        speed = dist / sec;
+      }
+    }
+    _lastPosition = pos;
+    currentPosition = newLatLng;
+    currentSpeedMps = speed;
+    currentMode = _modeFromSpeed(speed);
+    final status = TrackingStatus(
+      position: newLatLng,
+      speedMps: speed,
+      mode: currentMode,
+    );
+    _statusController.add(status);
+  }
+
+  String _modeFromSpeed(double speed) {
+    if (speed < Constants.STATIONARY_THRESHOLD) {
+      return 'ثابت';
+    } else if (speed < Constants.WALKING_THRESHOLD) {
+      return 'مشي';
+    } else {
+      return 'قيادة';
+    }
+  }
+}
+
+
+
+==== lib\services\map_service.dart ====
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart' as ll;
+import '../models/lat_lng.dart' as model;
+import '../models/station_model.dart';
+import '../models/route_model.dart';
+
+class MapService {
+  MapService._privateConstructor();
+  static final MapService instance = MapService._privateConstructor();
+
+  TileLayer buildTileLayer(bool nightMode) {
+    return TileLayer(
+      urlTemplate: nightMode
+          ? 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png'
+          : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      subdomains: const ['a', 'b', 'c'],
+      userAgentPackageName: 'com.example.app',
+    );
+  }
+
+  Marker createUserMarker(model.LatLng position) {
+    return Marker(
+      point: ll.LatLng(position.latitude, position.longitude),
+      width: 60,
+      height: 60,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const Icon(Icons.my_location, size: 36, color: Colors.blue),
+          Positioned(
+            bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text(
+                'أنت',
+                style: TextStyle(color: Colors.white, fontSize: 10),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Marker> createStationMarkers(
+      List<StationModel> stations, void Function(StationModel) onTap,) {
+    return stations.map((s) {
+      return Marker(
+        point: ll.LatLng(s.location.latitude, s.location.longitude),
+        width: 80,
+        height: 40,
+        child: GestureDetector(
+          onTap: () => onTap(s),
+          child: Column(
+            children: [
+              const Icon(Icons.location_on, color: Colors.redAccent, size: 28),
+              Container(
+                width: 70,
+                color: Colors.white,
+                child: Text(
+                  s.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 10),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  LatLngBounds computeBoundsForRoute(RouteModel route) {
+    final points = <ll.LatLng>[];
+    for (final leg in route.legs) {
+      for (final p in leg.geometry) {
+        points.add(ll.LatLng(p.latitude, p.longitude));
+      }
+    }
+    if (points.isEmpty) {
+      final o = ll.LatLng(route.origin.latitude, route.origin.longitude);
+      return LatLngBounds(o, o);
+    }
+    final latitudes = points.map((p) => p.latitude).toList();
+    final longitudes = points.map((p) => p.longitude).toList();
+    final sw = ll.LatLng(latitudes.reduce((a, b) => a < b ? a : b),
+        longitudes.reduce((a, b) => a < b ? a : b),);
+    final ne = ll.LatLng(latitudes.reduce((a, b) => a > b ? a : b),
+        longitudes.reduce((a, b) => a > b ? a : b),);
+    return LatLngBounds(sw, ne);
+  }
+}
+
+class MapUtils {
+  static Future<TileLayer> toggleNightMode(bool nightMode) async {
+    // placeholder for saving setting
+    return MapService.instance.buildTileLayer(nightMode);
+  }
+}
+
+
+
+==== lib\services\routing_service.dart ====
+import 'dart:convert';
+import 'dart:math';
+import 'package:http/http.dart' as http;
+import '../models/lat_lng.dart';
+import '../models/route_model.dart';
+import '../models/leg_model.dart';
+import '../models/station_model.dart';
+import '../config/app_config.dart';
+
+class RoutingService {
+  RoutingService._internal();
+  static final RoutingService instance = RoutingService._internal();
+
+  Future<LegModel> _parseORSFeature(Map<String, dynamic> feature, LegType type,
+      {String? startStationId, String? endStationId,}) async {
+    final props = feature['properties'] as Map<String, dynamic>? ?? {};
+    final summary = props['summary'] as Map<String, dynamic>? ?? {};
+    final distance = (summary['distance'] as num?)?.toDouble() ??
+        (feature['distance'] as num?)?.toDouble() ??
+        0.0;
+    final duration = (summary['duration'] as num?)?.toInt() ??
+        (feature['duration'] as num?)?.toInt() ??
+        0;
+    final geometry = feature['geometry'] as Map<String, dynamic>? ?? {};
+    final coords = geometry['coordinates'] as List? ?? [];
+    final points = <LatLng>[];
+    for (final c in coords) {
+      if (c is List && c.length >= 2) {
+        points.add(LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()));
+      }
+    }
+    return LegModel(
+      type: type,
+      distanceMeters: distance,
+      durationSeconds: duration,
+      geometry: points,
+      startStationId: startStationId,
+      endStationId: endStationId,
+    );
+  }
+
+  Future<LegModel> calculateRouteORS(
+      List<LatLng> waypoints, String profile,) async {
+    final url =
+        Uri.parse('https://api.openrouteservice.org/v2/directions/$profile/geojson');
+    final coords = waypoints.map((w) => [w.longitude, w.latitude]).toList();
+    final body = jsonEncode({
+      'coordinates': coords,
+      'instructions': false,
+      'units': 'm',
+    });
+
+    int tries = 0;
+    while (tries < 3) {
+      tries++;
+      final resp = await http.post(url, headers: {
+        'Authorization': AppConfig.orsApiKey,
+        'Content-Type': 'application/json',
+      }, body: body,);
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        final features = (data['features'] as List?) ?? [];
+        if (features.isNotEmpty) {
+          return _parseORSFeature(features.first as Map<String, dynamic>, LegType.walk_to);
+        }
+      } else if (resp.statusCode == 403 || resp.statusCode == 429) {
+        // rate-limited or forbidden - fallback to OSRM
+        return calculateRouteOSRM(waypoints, profile);
+      } else {
+        await Future.delayed(Duration(milliseconds: 500 * pow(2, tries).toInt()));
+      }
+    }
+    // fallback default empty leg
+    return LegModel(
+        type: LegType.walk_to,
+        distanceMeters: 0.0,
+        durationSeconds: 0,
+        geometry: [],);
+  }
+
+  Future<LegModel> calculateRouteOSRM(List<LatLng> waypoints, String profile) async {
+    final coords = waypoints.map((w) => '${w.longitude},${w.latitude}').join(';');
+    final url = Uri.parse('${AppConfig.osrmBaseUrl}/route/v1/$profile/$coords?overview=full&geometries=geojson');
+    final resp = await http.get(url);
+    if (resp.statusCode == 200) {
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final routes = data['routes'] as List? ?? [];
+      if (routes.isNotEmpty) {
+        final route = routes.first as Map<String, dynamic>;
+        final distance = (route['distance'] as num?)?.toDouble() ?? 0.0;
+        final duration = (route['duration'] as num?)?.toInt() ?? 0;
+        final geometry = route['geometry'] as Map<String, dynamic>? ?? {};
+        final coordsList = geometry['coordinates'] as List? ?? [];
+        final points = <LatLng>[];
+        for (final c in coordsList) {
+          if (c is List && c.length >= 2) {
+            points.add(LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()));
+          }
+        }
+        return LegModel(
+            type: LegType.walk_to,
+            distanceMeters: distance,
+            durationSeconds: duration,
+            geometry: points,);
+      }
+    }
+    return LegModel(
+        type: LegType.walk_to,
+        distanceMeters: 0.0,
+        durationSeconds: 0,
+        geometry: [],);
+  }
+
+  Future<RouteModel> composeMultiLegRoute(LatLng origin, LatLng destination,
+      StationModel boardingStation, StationModel alightStation,) async {
+    final legA = await calculateRouteORS([origin, boardingStation.location], 'foot-walking');
+    final legB = await calculateRouteORS([boardingStation.location, alightStation.location], 'driving-car');
+    final legC = await calculateRouteORS([alightStation.location, destination], 'foot-walking');
+
+    final walkTo = LegModel(
+      type: LegType.walk_to,
+      distanceMeters: legA.distanceMeters,
+      durationSeconds: legA.durationSeconds,
+      geometry: legA.geometry,
+      startStationId: null,
+      endStationId: boardingStation.id,
+    );
+    final transit = LegModel(
+      type: LegType.transit,
+      distanceMeters: legB.distanceMeters,
+      durationSeconds: legB.durationSeconds,
+      geometry: legB.geometry,
+      startStationId: boardingStation.id,
+      endStationId: alightStation.id,
+    );
+    final walkFrom = LegModel(
+      type: LegType.walk_from,
+      distanceMeters: legC.distanceMeters,
+      durationSeconds: legC.durationSeconds,
+      geometry: legC.geometry,
+      startStationId: alightStation.id,
+      endStationId: null,
+    );
+
+    final route = RouteModel(
+      origin: origin,
+      destination: destination,
+      legs: [walkTo, transit, walkFrom],
+    );
+    route.computeTotals();
+    return route;
+  }
+
+  StationModel findNearestStation(LatLng point, List<StationModel> stations) {
+    StationModel? nearest;
+    double minDist = double.infinity;
+    for (final s in stations) {
+      final d = s.location.distanceTo(point);
+      if (d < minDist) {
+        minDist = d;
+        nearest = s;
+      }
+    }
+    return nearest!;
+  }
+}
+
+
+
+==== lib\services\storage_service.dart ====
+import 'package:hive/hive.dart';
+import '../models/route_model.dart';
+import '../config/app_config.dart';
+
+class StorageService {
+  StorageService._internal();
+  static final StorageService instance = StorageService._internal();
+
+  late Box _favoritesBox;
+  late Box _settingsBox;
+
+  Future<void> init() async {
+    _favoritesBox = Hive.box(AppConfig.hiveBoxName);
+    _settingsBox = Hive.box('settings_box');
+  }
+
+  Future<void> saveFavoriteRoute(RouteModel route) async {
+    await _favoritesBox.put(route.id, route.toJson());
+  }
+
+  Future<List<RouteModel>> getFavoriteRoutes() async {
+    final list = <RouteModel>[];
+    for (final v in _favoritesBox.values) {
+      if (v is Map) {
+        list.add(RouteModel.fromJson(Map<String, dynamic>.from(v)));
+      } else if (v is String) {
+        try {
+          list.add(RouteModel.fromJson(Map<String, dynamic>.from(v as dynamic)));
+        } catch (_) {}
+      }
+    }
+    return list;
+  }
+
+  Future<void> deleteFavoriteRoute(String id) async {
+    await _favoritesBox.delete(id);
+  }
+
+  dynamic getSetting(String key) => _settingsBox.get(key);
+
+  Future<void> setSetting(String key, dynamic value) async =>
+      await _settingsBox.put(key, value);
+
+  Future<void> migrateFromSqlite() async {
+    // Placeholder: describe migration approach in docs.
+  }
+}
+
+
+
+==== lib\services\traffic_service.dart ====
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'package:hive/hive.dart';
+import '../models/traffic_sample_model.dart';
+
+class TrafficService {
+  TrafficService._internal();
+  static final TrafficService instance = TrafficService._internal();
+
+  final String boxName = 'traffic_samples';
+  Box? _box;
+
+  Future<void> init() async {
+    _box = Hive.box(boxName);
+  }
+
+  Future<void> collectTripSample(TrafficSample sample) async {
+    await _box?.put(sample.id, sample.toJson());
+  }
+
+  Map<String, double> predictBusyHours(String pathHash, DateTime date) {
+    // 24 hour map string->score
+    final map = <String, double>{};
+    for (var h = 0; h < 24; h++) {
+      map[h.toString().padLeft(2, '0')] = 0.0;
+    }
+    if (_box == null) return map;
+    final samples = _box!.values
+        .where((v) =>
+            v is Map &&
+            v['pathHash'] == pathHash &&
+            DateTime.parse(v['timestampUtc']).toUtc().year == date.toUtc().year,)
+        .map((v) => v as Map)
+        .toList();
+    final grouped = <int, List<Map>>{};
+    for (final s in samples) {
+      final dt = DateTime.parse(s['timestampUtc'] as String).toUtc();
+      grouped.putIfAbsent(dt.hour, () => []).add(s);
+    }
+    for (final e in grouped.entries) {
+      final avgSpeed = e.value
+              .map((m) => (m['averageSpeedMps'] as num).toDouble())
+              .fold<double>(0.0, (p, c) => p + c) /
+          e.value.length;
+      final freeFlow = 8.33; // driving as default
+      final busyScore = (1.0 - (avgSpeed / freeFlow)).clamp(0.0, 1.0);
+      map[e.key.toString().padLeft(2, '0')] = double.parse(busyScore.toStringAsFixed(2));
+    }
+    return map;
+  }
+
+  Future<void> exportSamplesApi(Uri url) async {
+    // send all samples as example
+    if (_box == null) return;
+    final payload = _box!.values.toList();
+    // Do an HTTP POST - omitted for brevity.
+  }
+
+  Future<List<Map>> getHourlySummary(String pathHash) async {
+    final result = <Map>[];
+    if (_box == null) return result;
+    final samples = _box!.values.where((v) => (v as Map)['pathHash'] == pathHash).toList();
+    // aggregate by hour
+    final byHour = <int, List<Map>>{};
+    for (final s in samples) {
+      final dt = DateTime.parse((s as Map)['timestampUtc'] as String).toUtc();
+      byHour.putIfAbsent(dt.hour, () => []).add(s);
+    }
+    for (var h = 0; h < 24; h++) {
+      final list = byHour[h] ?? [];
+      final avg = list.isEmpty
+          ? 0.0
+          : list
+                  .map((m) => (m['averageSpeedMps'] as num).toDouble())
+                  .fold<double>(0.0, (p, c) => p + c) /
+              list.length;
+      result.add({'hour': h, 'avgSpeed': avg});
+    }
+    return result;
+  }
+
+  Future<void> clearSamplesOlderThan(Duration d) async {
+    if (_box == null) return;
+    final cutoff = DateTime.now().toUtc().subtract(d);
+    final keysToDelete = <dynamic>[];
+    for (final key in _box!.keys) {
+      final v = _box!.get(key);
+      if (v is Map) {
+        final ts = DateTime.parse(v['timestampUtc'] as String).toUtc();
+        if (ts.isBefore(cutoff)) keysToDelete.add(key);
+      }
+    }
+    for (final k in keysToDelete) {
+      await _box!.delete(k);
+    }
+  }
+
+  String anonymizePath(List<dynamic> coords) {
+    final sb = StringBuffer();
+    for (final c in coords) {
+      sb.write('${c[0].toStringAsFixed(4)},${c[1].toStringAsFixed(4)};');
+    }
+    final bytes = utf8.encode(sb.toString());
+    return sha256.convert(bytes).toString();
+  }
+}
+
+
+
+==== lib\tests\mocks\mock_http_client.dart ====
+// Simplified mock for tests (non-production)
+import 'package:http/http.dart' as http;
+
+class MockHttpClient {
+  final Map<String, http.Response> _responses = {};
+
+  void registerResponse(Uri uri, String json, int statusCode) {
+    _responses[uri.toString()] = http.Response(json, statusCode);
+  }
+
+  http.Response? getResponse(Uri uri) {
+    return _responses[uri.toString()];
+  }
+
+  void reset() {
+    _responses.clear();
+  }
+}
+
+
+
+==== lib\utils\geo_utils.dart ====
+import '../models/lat_lng.dart';
+
+double haversineDistance(LatLng a, LatLng b) => a.distanceTo(b);
+
+double computePolylineLength(List<LatLng> polyline) {
+  var sum = 0.0;
+  for (var i = 1; i < polyline.length; i++) {
+    sum += polyline[i - 1].distanceTo(polyline[i]);
+  }
+  return sum;
+}
+
+Map<String, dynamic> splitLineAtNearestPoint(List<LatLng> polyline, LatLng point) {
+  if (polyline.isEmpty) return {'index': 0, 'segments': [polyline]};
+  var minDist = double.infinity;
+  var minIndex = 0;
+  for (var i = 0; i < polyline.length; i++) {
+    final d = polyline[i].distanceTo(point);
+    if (d < minDist) {
+      minDist = d;
+      minIndex = i;
+    }
+  }
+  final seg1 = polyline.sublist(0, minIndex + 1);
+  final seg2 = polyline.sublist(minIndex);
+  return {'index': minIndex, 'segments': [seg1, seg2]};
+}
+
+String hashPath(List<LatLng> path) {
+  final sb = StringBuffer();
+  for (final p in path) {
+    sb.write('${p.latitude.toStringAsFixed(4)},${p.longitude.toStringAsFixed(4)};');
+  }
+  // simple hash
+  return sb.toString().hashCode.toString();
+}
+
+
+
+==== lib\utils\ui_helpers.dart ====
+String secondsToMinutesLabel(int seconds) {
+  final m = (seconds / 60).round();
+  if (m == 1) return 'دقيقة واحدة';
+  if (m < 5) return '$m دقائق';
+  return '$m دقيقة';
+}
+
+String formatDistance(double meters) {
+  if (meters < 1000) {
+    return '${meters.toStringAsFixed(0)} م';
+  } else {
+    return '${(meters / 1000).toStringAsFixed(2)} كم';
+  }
+}
+
+
+
+==== lib\widgets\map_widget.dart ====
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart' as ll;
+import 'package:provider/provider.dart';
+
+import '../models/lat_lng.dart';
+import '../models/leg_model.dart'; // where LegType is defined
+import '../models/station_model.dart'; // where StationModel is defined
+import '../services/map_service.dart';
+import '../providers/tracking_provider.dart';
+import '../providers/route_provider.dart';
+import '../data/stations_repository.dart';
+// import '../widgets/station_marker_widget.dart'; // مش مستخدم هنا
+// import '../config/constants.dart'; // مش مستخدم هنا
+
+class MapWidget extends StatefulWidget {
+  final LatLng? initialCenter;
+  final double initialZoom;
+  final bool allowDestinationTap;
+
+  const MapWidget({
+    Key? key,
+    this.initialCenter,
+    this.initialZoom = 14.0,
+    this.allowDestinationTap = true,
+  }) : super(key: key);
+
+  @override
+  State<MapWidget> createState() => _MapWidgetState();
+}
+
+class _MapWidgetState extends State<MapWidget> {
+  final MapController _controller = MapController();
+  bool nightMode = false;
+  List<Marker> stationMarkers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStations();
+  }
+
+  Future<void> _loadStations() async {
+    final sts = await StationsRepository.loadStations();
+    setState(() {
+      stationMarkers =
+          MapService.instance.createStationMarkers(sts, _onStationTap);
+    });
+  }
+
+  void _onStationTap(StationModel s) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) {
+        return Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                s.name,
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text('نوع المحطة: ${s.type.name}'),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('اغلاق'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tracking = Provider.of<TrackingProvider>(context);
+    final routeProv = Provider.of<RouteProvider>(context);
+
+    final center = widget.initialCenter != null
+        ? ll.LatLng(
+            widget.initialCenter!.latitude, widget.initialCenter!.longitude,)
+        : (tracking.currentPosition != null
+            ? ll.LatLng(tracking.currentPosition!.latitude,
+                tracking.currentPosition!.longitude,)
+            : const ll.LatLng(31.21564, 29.95527)); // إفتراضي: إسكندرية
+
+    final tileLayer = MapService.instance.buildTileLayer(nightMode);
+
+    final markers = <Marker>[];
+    if (tracking.currentPosition != null) {
+      markers
+          .add(MapService.instance.createUserMarker(tracking.currentPosition!));
+    }
+    markers.addAll(stationMarkers);
+
+    final polylines = <Polyline>[];
+    if (routeProv.activeRoute != null) {
+      for (final leg in routeProv.activeRoute!.legs) {
+        final color = leg.type == LegType.transit
+            ? Colors.red
+            : (leg.type == LegType.walk_to ? Colors.blue : Colors.green);
+
+        // leg.points لازم تكون List<ll.LatLng> أو List<LatLng> من latlong2
+        polylines.add(Polyline(
+          points: leg.geometry
+              .map((p) => ll.LatLng(p.latitude, p.longitude))
+              .toList(),
+          strokeWidth: leg.type == LegType.transit ? 5 : 4,
+          color: color,
+        ),);
+      }
+    }
+
+    return FlutterMap(
+      mapController: _controller,
+      options: MapOptions(
+        initialCenter: center,
+        initialZoom: widget.initialZoom,
+        onTap: widget.allowDestinationTap
+            ? (tapPos, latlng) {
+                final dest = LatLng(latlng.latitude, latlng.longitude);
+                showModalBottomSheet(
+                  context: context,
+                  builder: (_) {
+                    return Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('اذهب إلى هذا المكان',
+                              style: TextStyle(fontSize: 16),),
+                          const SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: () {
+                              routeProv.calculateAndSetRoute(dest);
+                              Navigator.of(context).pop();
+                            },
+                            child: const Text('تأكيد'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              }
+            : null,
+      ),
+      children: [
+        // في flutter_map ^8.2.1 بنستخدم TileLayer مباشرة
+        tileLayer,
+        if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),
+        MarkerLayer(markers: markers),
+      ],
+    );
+  }
+}
+
+
+
+==== lib\widgets\night_mode_toggle.dart ====
+import 'package:flutter/material.dart';
+import '../services/storage_service.dart';
+
+class NightModeToggle extends StatefulWidget {
+  final bool isNightMode;
+  final ValueChanged<bool> onToggle;
+
+  const NightModeToggle({Key? key, required this.isNightMode, required this.onToggle}) : super(key: key);
+
+  @override
+  State<NightModeToggle> createState() => _NightModeToggleState();
+}
+
+class _NightModeToggleState extends State<NightModeToggle> {
+  late bool value;
+
+  @override
+  void initState() {
+    super.initState();
+    value = widget.isNightMode;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Text('وضع ليلي'),
+        Switch(
+          value: value,
+          onChanged: (v) async {
+            setState(() => value = v);
+            await StorageService.instance.setSetting('night_mode', v);
+            widget.onToggle(v);
+          },
+        ),
+      ],
+    );
+  }
+}
+
+
+
+==== lib\widgets\route_details_panel.dart ====
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../models/route_model.dart';
+import '../providers/route_provider.dart';
+import '../providers/tracking_provider.dart';
+import '../services/notification_service.dar';
+import '../models/leg_model.dart';
+
+class RouteDetailsPanel extends StatefulWidget {
+  final RouteModel route;
+  const RouteDetailsPanel({Key? key, required this.route}) : super(key: key);
+
+  @override
+  State<RouteDetailsPanel> createState() => _RouteDetailsPanelState();
+}
+
+class _RouteDetailsPanelState extends State<RouteDetailsPanel> {
+  bool notifyOnArrival = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final rp = Provider.of<RouteProvider>(context);
+    final tp = Provider.of<TrackingProvider>(context);
+    final etaMinutes = (widget.route.totalDurationSeconds / 60).round();
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+          color: Colors.white70, borderRadius: BorderRadius.circular(12),),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('ملخص المسار - ETA: $etaMinutes دقيقة',
+              style: const TextStyle(fontWeight: FontWeight.bold),),
+          const SizedBox(height: 8),
+          ...widget.route.legs.map((l) {
+            final label = l.type == LegType.walk_to
+                ? 'المشي إلى المحطة'
+                : (l.type == LegType.transit
+                    ? 'ركوب/قيادة'
+                    : 'المشي إلى الوجهة');
+            return ListTile(
+              leading: Icon(l.type == LegType.transit
+                  ? Icons.directions_bus
+                  : Icons.directions_walk,),
+              title: Text(label),
+              subtitle: Text(
+                  '${(l.distanceMeters / 1000).toStringAsFixed(2)} كم • ${(l.durationSeconds / 60).round()} دقيقة',),
+            );
+          }).toList(),
+          Row(
+            children: [
+              ElevatedButton(
+                onPressed: () {
+                  rp.saveActiveRouteAsFavorite(
+                      'المسار المفضل ${DateTime.now().toIso8601String()}',);
+                },
+                child: const Text('حفظ كمسار مفضل'),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    notifyOnArrival = !notifyOnArrival;
+                  });
+                  if (notifyOnArrival) {
+                    NotificationService.instance.scheduleArrivalAlert(
+                        widget.route, widget.route.legs.last,);
+                  }
+                },
+                child: Text(
+                    notifyOnArrival ? 'إيقاف الإشعار' : 'تفعيل إشعار الوصول',),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+
+==== lib\widgets\speed_display.dart ====
+import 'package:flutter/material.dart';
+
+class SpeedDisplay extends StatelessWidget {
+  final double speedMps;
+  final String mode;
+  final bool showUnit;
+
+  const SpeedDisplay({Key? key, required this.speedMps, required this.mode, this.showUnit = true}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final kmh = (speedMps * 3.6);
+    final modeIcon = mode == 'مشي' ? Icons.directions_walk : (mode == 'قيادة' ? Icons.drive_eta : Icons.circle);
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(color: Colors.white70, borderRadius: BorderRadius.circular(8)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(modeIcon, size: 18),
+          const SizedBox(width: 8),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${speedMps.toStringAsFixed(1)} ${showUnit ? 'm/s' : ''}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              Text('${kmh.toStringAsFixed(0)} km/h', style: const TextStyle(fontSize: 10)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+
+==== lib\widgets\station_marker_widget.dart ====
+import 'package:flutter/material.dart';
+import '../models/station_model.dart';
+
+class StationMarkerWidget extends StatelessWidget {
+  final StationModel station;
+  final VoidCallback onTap;
+
+  const StationMarkerWidget({Key? key, required this.station, required this.onTap}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          const Icon(Icons.location_pin, color: Colors.red),
+          Container(
+            width: 80,
+            child: Text(
+              station.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+
+==== lib\widgets\tracking_toggle.dart ====
+import 'package:flutter/material.dart';
+
+class TrackingToggle extends StatefulWidget {
+  final bool isTracking;
+  final VoidCallback onToggle;
+
+  const TrackingToggle({Key? key, required this.isTracking, required this.onToggle}) : super(key: key);
+
+  @override
+  State<TrackingToggle> createState() => _TrackingToggleState();
+}
+
+class _TrackingToggleState extends State<TrackingToggle> {
+  bool loading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton.icon(
+      icon: loading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : Icon(widget.isTracking ? Icons.pause : Icons.play_arrow),
+      label: const Text('تشغيل/إيقاف تتبع الموقع'),
+      onPressed: () async {
+        setState(() { loading = true; });
+        await Future.delayed(const Duration(milliseconds: 400));
+        widget.onToggle();
+        setState(() { loading = false; });
+      },
+      style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12)),
+    );
+  }
+}
+
+
+

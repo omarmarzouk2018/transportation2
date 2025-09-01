@@ -1,0 +1,142 @@
+[
+  {
+    "id": "st_001",
+    "name": "محطة أبوقير",
+    "location": { "lat": 31.321152, "lon": 30.063232 },
+    "type": "MicroBus",
+    "attributes": { "lines": "M1" }
+  },
+  {
+    "id": "st_002",
+    "name": "محطة الرمل",
+    "location": { "lat": 31.2001, "lon": 29.9187 },
+    "type": "tram",
+    "attributes": { "lines": "T1" }
+  },
+  {
+    "id": "st_003",
+    "name": "محطة  الشاطبي",
+    "location": { "lat": 31.2181, "lon": 29.9094 },
+    "type": "bus",
+    "attributes": { "lines": "B3" }
+  },
+  {
+    "id": "st_004",
+    "name": "محطة محطة ميناء دمياط",
+    "location": { "lat": 31.2131, "lon": 29.955 },
+    "type": "metro",
+    "attributes": { "lines": "M1" }
+  },
+  {
+    "id": "st_005",
+    "name": "محطة سان ستيفانو",
+    "location": { "lat": 31.2179, "lon": 29.9151 },
+    "type": "tram",
+    "attributes": { "lines": "T2" }
+  },
+  {
+    "id": "st_006",
+    "name": "محطة محطة العباسية",
+    "location": { "lat": 31.2058, "lon": 29.9211 },
+    "type": "bus",
+    "attributes": { "lines": "B1" }
+  },
+  {
+    "id": "st_007",
+    "name": "محطة محطة المحمودية",
+    "location": { "lat": 31.205, "lon": 29.9312 },
+    "type": "bus",
+    "attributes": { "lines": "B2" }
+  },
+  {
+    "id": "st_008",
+    "name": "محطة محطة المنشية",
+    "location": { "lat": 31.2005, "lon": 29.918 },
+    "type": "tram",
+    "attributes": { "lines": "T3" }
+  },
+  {
+    "id": "st_009",
+    "name": "محطة محطة سيدى بشر",
+    "location": { "lat": 31.235, "lon": 29.9662 },
+    "type": "bus",
+    "attributes": { "lines": "B5" }
+  },
+  {
+    "id": "st_010",
+    "name": "محطة محطة الاوبرا",
+    "location": { "lat": 31.2056, "lon": 29.9215 },
+    "type": "metro",
+    "attributes": { "lines": "M2" }
+  },
+  {
+    "id": "st_011",
+    "name": "محطة محطة الحريه",
+    "location": { "lat": 31.2204, "lon": 29.9242 },
+    "type": "bus",
+    "attributes": { "lines": "B4" }
+  },
+  {
+    "id": "st_012",
+    "name": "محطة محطة كوبرى 6 أكتوبر",
+    "location": { "lat": 31.2135, "lon": 29.946 },
+    "type": "tram",
+    "attributes": { "lines": "T4" }
+  },
+  {
+    "id": "st_013",
+    "name": "محطة محطة فكتوريا",
+    "location": { "lat": 31.2101, "lon": 29.9134 },
+    "type": "bus",
+    "attributes": { "lines": "B6" }
+  },
+  {
+    "id": "st_014",
+    "name": "محطة محطة المعمورة",
+    "location": { "lat": 31.1911, "lon": 29.929 },
+    "type": "ferry",
+    "attributes": { "lines": "F1" }
+  },
+  {
+    "id": "st_015",
+    "name": "محطة محطة المنتزه",
+    "location": { "lat": 31.2951, "lon": 29.9591 },
+    "type": "tram",
+    "attributes": { "lines": "T5" }
+  },
+  {
+    "id": "st_016",
+    "name": "محطة ابو قير",
+    "location": { "lat": 31.2622, "lon": 30.0076 },
+    "type": "ferry",
+    "attributes": { "lines": "F2" }
+  },
+  {
+    "id": "st_017",
+    "name": "محطة الرمل القديمة",
+    "location": { "lat": 31.1999, "lon": 29.919 },
+    "type": "tram",
+    "attributes": { "lines": "T1" }
+  },
+  {
+    "id": "st_018",
+    "name": "محطة الكورنيش",
+    "location": { "lat": 31.2157, "lon": 29.9559 },
+    "type": "bus",
+    "attributes": { "lines": "B7" }
+  },
+  {
+    "id": "st_019",
+    "name": "محطةالسيوف",
+    "location": { "lat": 31.2052, "lon": 29.9202 },
+    "type": "metro",
+    "attributes": { "lines": "M3" }
+  },
+  {
+    "id": "st_020",
+    "name": "محطةالرمل المركزية",
+    "location": { "lat": 31.201, "lon": 29.9189 },
+    "type": "tram",
+    "attributes": { "lines": "T1" }
+  }
+]

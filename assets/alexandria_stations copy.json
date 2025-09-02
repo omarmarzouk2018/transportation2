@@ -1,0 +1,86 @@
+[
+  {
+    "id": "A1-1",
+    "name": "محطة أبوقير",
+    "location": { "lat": 31.321152, "lon": 30.063232 },
+    "type": "MicroBus",
+    "lines": [{ "id": "A1", "stop_number": 1 }]
+  },
+  {
+    "id": "A1-2",
+    "name": "محطة الإدارة",
+    "location": { "lat": 31.304329, "lon": 30.057781 },
+    "type": "MicroBus",
+    "lines": [{ "id": "A1", "stop_number": 2 }]
+  },
+  {
+    "id": "st_AQ",
+    "name": "محطة أبوقير",
+    "location": { "lat": 31.321152, "lon": 30.063232 },
+    "type": "MicroBus",
+    "attributes": { "lines": "M1" }
+  },
+  {
+    "id": "st_002",
+    "name": "محطة الرمل",
+    "location": { "lat": 31.2001, "lon": 29.9187 },
+    "type": "tram",
+    "attributes": { "lines": "T1" },
+    "connections": ["st_003"]
+  },
+  {
+    "id": "st_003",
+    "name": "محطة الشاطبي",
+    "location": { "lat": 31.2181, "lon": 29.9094 },
+    "type": "bus",
+    "attributes": { "lines": "B3" },
+    "connections": ["st_004"]
+  },
+
+  {
+    "id": "st_005",
+    "name": "محطة سان ستيفانو",
+    "location": { "lat": 31.2179, "lon": 29.9151 },
+    "type": "tram",
+    "attributes": { "lines": "T2" }
+  },
+
+  {
+    "id": "Manshia",
+    "name": "محطة المنشية",
+    "location": { "lat": 31.2005, "lon": 29.918 },
+    "type": "tram",
+    "attributes": { "lines": "T3" }
+  },
+  {
+    "id": "st_009",
+    "name": "محطة سيدى بشر",
+    "location": { "lat": 31.235, "lon": 29.9662 },
+    "type": "bus",
+    "attributes": { "lines": "B5" }
+  },
+
+  {
+    "id": "st_013",
+    "name": "محطة فكتوريا",
+    "location": { "lat": 31.2101, "lon": 29.9134 },
+    "type": "bus",
+    "attributes": { "lines": "B6" }
+  },
+
+  {
+    "id": "st_015",
+    "name": "محطة المنتزه",
+    "location": { "lat": 31.2951, "lon": 29.9591 },
+    "type": "tram",
+    "attributes": { "lines": "T5" }
+  },
+
+  {
+    "id": "st_020",
+    "name": "محطةالرمل المركزية",
+    "location": { "lat": 31.201, "lon": 29.9189 },
+    "type": "tram",
+    "attributes": { "lines": "T1" }
+  }
+]

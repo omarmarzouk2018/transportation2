@@ -5,9 +5,12 @@ import '../models/lat_lng.dart';
 
 class StationsRepository {
   static Future<List<StationModel>> loadStations() async {
-    final jsonStr = await rootBundle.loadString('assets/alexandria_stations.json');
+    final jsonStr =
+        await rootBundle.loadString('assets/alexandria_stations.json');
     final list = jsonDecode(jsonStr) as List;
-    return list.map((e) => StationModel.fromJson(Map<String, dynamic>.from(e))).toList();
+    return list
+        .map((e) => StationModel.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   static Future<void> updateStationsFromRemote(String url) async {

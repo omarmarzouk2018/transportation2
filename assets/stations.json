@@ -1,0 +1,44 @@
+[
+  {
+    "id": "ِAQ",
+    "name": "أبوقير",
+    "location": { "lat": 31.321152, "lon": 30.063232 },
+    "type": "MicroBus"
+  },
+  {
+    "id": "Ed",
+    "name": "الإدارة",
+    "location": { "lat": 31.304329, "lon": 30.057781 },
+    "type": "MicroBus"
+  },
+  {
+    "id": "Mn",
+    "name": "المندرة",
+    "location": { "lat": 31.280407, "lon": 30.016167 },
+    "type": "MicroBus"
+  },
+  {
+    "id": "Ms",
+    "name": "المنشية",
+    "location": { "lat": 31.200489, "lon": 29.893809 },
+    "type": "MicroBus"
+  },
+  {
+    "id": "Vic",
+    "name": "فيكتوريا",
+    "location": { "lat": 31.215639, "lon": 29.955467 },
+    "type": "MicroBus"
+  },
+  {
+    "id": "ES",
+    "name": "محطة مصر",
+    "location": { "lat": 31.215639, "lon": 29.955467 },
+    "type": "MicroBus"
+  },
+  {
+    "id": "Bh",
+    "name": "بحري",
+    "location": { "lat": 31.209957, "lon": 29.882043 },
+    "type": "MicroBus"
+  }
+]

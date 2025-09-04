@@ -9,7 +9,6 @@ import 'screens/favorites_screen.dart';
 import 'screens/settings_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-
 class App extends StatelessWidget {
   const App({Key? key}) : super(key: key);
 
@@ -31,28 +30,29 @@ class App extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-  debugShowCheckedModeBanner: false,
-  title: 'AlexTransportation',
-  locale: const Locale('ar'),
-  localizationsDelegates: const [
-    GlobalMaterialLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-  ],
-  supportedLocales: const [
-    Locale('ar'),
-    Locale('en'),
-  ],
-  theme: ThemeData.light(),
-  darkTheme: ThemeData.dark(),
-  themeMode: AppConfig.defaultNightMode ? ThemeMode.dark : ThemeMode.light,
-  initialRoute: '/',
-  routes: {
-    '/': (_) => const HomeScreen(),
-    '/favorites': (_) => const FavoritesScreen(),
-    '/settings': (_) => const SettingsScreen(),
-  },
-),
+        debugShowCheckedModeBanner: false,
+        title: 'AlexTransportation',
+        locale: const Locale('ar'),
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('ar'),
+          Locale('en'),
+        ],
+        theme: ThemeData.light(),
+        darkTheme: ThemeData.dark(),
+        themeMode:
+            AppConfig.defaultNightMode ? ThemeMode.dark : ThemeMode.light,
+        initialRoute: '/',
+        routes: {
+          '/': (_) => const HomeScreen(),
+          '/favorites': (_) => const FavoritesScreen(),
+          '/settings': (_) => const SettingsScreen(),
+        },
+      ),
     );
   }
 }

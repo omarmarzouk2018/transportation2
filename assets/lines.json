@@ -1,0 +1,20 @@
+[
+  {
+    "id": "L1",
+    "name": "ابوقير-منشية",
+    "price": 10,
+    "stations": ["AQ", "Ed", "Mn", "Ms"]
+  },
+  {
+    "id": "L2",
+    "name": "ابوقير-فيكتوريا",
+    "price": 10,
+    "stations": ["AQ", "Ed", "Mn", "Vic"]
+  },
+  {
+    "id": "L3",
+    "name": "منشية-بحري",
+    "price": 10,
+    "stations": ["Mn", "Bh"]
+  }
+]

@@ -19,7 +19,8 @@ class StationMarkerWidget extends StatelessWidget {
     final size = isSelected
         ? AppDimensions.stationIconSelected
         : AppDimensions.stationIconNormal;
-    final ringColor = isSelected ? Colors.blue : Colors.transparent;
+    final ringColor =
+        isSelected ? Colors.blue : Theme.of(context).colorScheme.primary;
     // final ringColor = isSelected? Theme.of(context).colorScheme.primary: Colors.black.withOpacity(0.2);
 
     return GestureDetector(
@@ -28,16 +29,16 @@ class StationMarkerWidget extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
+            duration: const Duration(milliseconds: 1000),
+            curve: Curves.easeOut,
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white,
-              border: Border.all(color: ringColor, width: isSelected ? 3 : 1.5),
+              border: Border.all(color: ringColor, width: isSelected ? 6 : 3),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withValues(alpha: 50),
                   blurRadius: isSelected ? 12 : 6,
                   offset: const Offset(0, 4),
                 ),

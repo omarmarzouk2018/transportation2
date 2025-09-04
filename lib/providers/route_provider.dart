@@ -4,6 +4,7 @@ import '../services/routing_service.dart';
 import '../services/storage_service.dart';
 import '../data/stations_repository.dart';
 import '../models/lat_lng.dart';
+import '../models/station_model.dart';
 
 class RouteProvider extends ChangeNotifier {
   final RoutingService _routing = RoutingService.instance;
@@ -18,7 +19,8 @@ class RouteProvider extends ChangeNotifier {
     notifyListeners();
     try {
       final origin = await Future.value(StationsRepository.getLastKnownLocation() ?? LatLng(31.2001, 29.9187));
-      final stations = await StationsRepository.loadStations();
+      // final stations = await StationsRepository.loadStations();
+      final stations = StationModel.stationsList;
       final boarding = _routing.findNearestStation(origin, stations);
       final alight = _routing.findNearestStation(destination, stations);
       final route = await _routing.composeMultiLegRoute(origin, destination, boarding, alight);
@@ -38,7 +40,7 @@ class RouteProvider extends ChangeNotifier {
   }
 
   Future<void> loadFavorites() async {
-    favorites = await _storage.getFavoriteRoutes();
+    // favorites = await _storage.getFavoriteRoutes();
     notifyListeners();
   }
 

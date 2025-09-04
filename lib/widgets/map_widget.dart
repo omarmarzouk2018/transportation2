@@ -1,33 +1,37 @@
+import 'package:alex_transit/widgets/station_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:provider/provider.dart';
-
 import '../models/lat_lng.dart';
 import '../models/leg_model.dart'; // where LegType is defined
 import '../models/station_model.dart'; // where StationModel is defined
 import '../services/map_service.dart';
 import '../providers/tracking_provider.dart';
 import '../providers/route_provider.dart';
-import '../data/stations_repository.dart';
-// import '../widgets/station_marker_widget.dart'; // مش مستخدم هنا
-// import '../config/constants.dart'; // مش مستخدم هنا
+import '../widgets/draged_bottom_sheet.dart';
+import '../widgets/station_card.dart';
+// import '../data/stations_repository.dart';
 
 class MapWidget extends StatefulWidget {
   final LatLng? initialCenter;
   final double initialZoom;
   final bool allowDestinationTap;
+  final void Function(StationModel)? onStationTap;
 
   const MapWidget({
     Key? key,
     this.initialCenter,
     this.initialZoom = 14.0,
     this.allowDestinationTap = true,
+    this.onStationTap,
   }) : super(key: key);
 
   @override
   State<MapWidget> createState() => _MapWidgetState();
 }
+
+String? selectedStationId;
 
 class _MapWidgetState extends State<MapWidget> {
   final MapController _controller = MapController();
@@ -37,43 +41,37 @@ class _MapWidgetState extends State<MapWidget> {
   @override
   void initState() {
     super.initState();
-    _loadStations();
+    _updateMarkers();
+    widget.onStationTap;
   }
 
-  Future<void> _loadStations() async {
-    final sts = await StationsRepository.loadStations();
+  void _updateMarkers({String? selectedId}) {
     setState(() {
-      stationMarkers =
-          MapService.instance.createStationMarkers(sts, _onStationTap);
+      selectedStationId = selectedId ?? selectedStationId;
+      stationMarkers = MapService.instance.createStationMarkers(
+        StationModel.stationsList,
+        _onStationTap,
+        selectedStationId: selectedStationId,
+      );
     });
   }
 
-  void _onStationTap(StationModel s) {
-    showModalBottomSheet(
-      context: context,
-      builder: (_) {
-        return Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                s.name,
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text('نوع المحطة: ${s.type.name}'),
-              const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('اغلاق'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  void _onStationTap(StationModel station) {
+    _updateMarkers(selectedId: station.id);
+    // showModalBottomSheet(
+    //   context: context,
+    //   isScrollControlled: true,
+    //   backgroundColor: Colors.transparent,
+    //   barrierColor: Colors.transparent,
+    //   useSafeArea: true,
+    //   builder: (_) {
+    //     return DragedBottomSheet(station: station);
+    //   },
+    // );
+    // Handle card tap
+    if (widget.onStationTap != null) {
+      widget.onStationTap!(station);
+    }
   }
 
   @override

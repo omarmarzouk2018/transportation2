@@ -5,7 +5,6 @@ import '../models/station_model.dart';
 import '../models/traffic_sample_model.dart';
 import '../models/lat_lng.dart';
 
-
 // We'll implement TypeAdapters manually to avoid build_runner for this sample.
 // However Hive needs generated adapters normally. For this example we'll create simple adapters.
 
@@ -99,14 +98,16 @@ class RouteModelAdapter extends TypeAdapter<RouteModel> {
       }
       final start = reader.readString();
       final end = reader.readString();
-      legs.add(LegModel(
-        type: type,
-        distanceMeters: distance,
-        durationSeconds: duration,
-        geometry: geometry,
-        startStationId: start.isEmpty ? null : start,
-        endStationId: end.isEmpty ? null : end,
-      ),);
+      legs.add(
+        LegModel(
+          type: type,
+          distanceMeters: distance,
+          durationSeconds: duration,
+          geometry: geometry,
+          startStationId: start.isEmpty ? null : start,
+          endStationId: end.isEmpty ? null : end,
+        ),
+      );
     }
     final totalDistance = reader.readDouble();
     final totalDuration = reader.readInt();
@@ -173,7 +174,6 @@ class StationModelAdapter extends TypeAdapter<StationModel> {
       name: name,
       location: LatLng(lat, lon),
       type: type,
-      attributes: attrs,
     );
   }
 
@@ -184,11 +184,6 @@ class StationModelAdapter extends TypeAdapter<StationModel> {
     writer.writeDouble(obj.location.latitude);
     writer.writeDouble(obj.location.longitude);
     writer.writeByte(obj.type.index);
-    writer.writeInt(obj.attributes.length);
-    obj.attributes.forEach((k, v) {
-      writer.writeString(k);
-      writer.writeString(v);
-    });
   }
 }
 

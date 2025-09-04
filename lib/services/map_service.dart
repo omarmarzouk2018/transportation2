@@ -13,7 +13,7 @@ class MapService {
   static final MapService instance = MapService._privateConstructor();
 
   final String api_key = '32f44222-373c-47ef-bd43-a09409ab0487';
-// / إنشاؤه مرة واحدة هنا لتجنّب إعادة البناء على كل rebuild
+  // create one time here avoid rebuild at every build
   final FMTCTileProvider _tileProvider = FMTCTileProvider.new(
     stores: {
       'mapStore': BrowseStoreStrategy.readUpdateCreate,
@@ -70,15 +70,15 @@ class MapService {
     void Function(StationModel) onTap,
     {String? selectedStationId}
   ) {
-    return stations.map((s) {
+    return stations.map((station) {
       return Marker(
-        point: ll.LatLng(s.location.latitude, s.location.longitude),
+        point: ll.LatLng(station.location.latitude, station.location.longitude),
         width: AppDimensions.stationMarkerWidth,
         height: AppDimensions.stationMarkerHeight,
         child: StationMarkerWidget(
-          station: s,
-          onTap: () => onTap(s),
-          isSelected: selectedStationId == s.id,
+          station: station,
+          onTap: () => onTap(station),
+          isSelected: selectedStationId == station.id,
         ),
       );
     }).toList();

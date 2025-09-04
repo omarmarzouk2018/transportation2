@@ -6,6 +6,8 @@ import '../widgets/tracking_toggle.dart';
 import '../widgets/route_details_panel.dart';
 import '../providers/tracking_provider.dart';
 import '../providers/route_provider.dart';
+import '../models/station_model.dart';
+import '../widgets/station_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -15,6 +17,20 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  StationModel? selectedStation;
+
+void _onStationTap(StationModel station) {
+    setState(() {
+      selectedStation = station;
+    });
+  }
+
+  void _closeCard() {
+    setState(() {
+      selectedStation = null;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -41,17 +57,39 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       appBar: AppBar(
         title: const Text('خريطة الإسكندرية'),
         actions: [
-          IconButton(onPressed: () => Navigator.of(context).pushNamed('/favorites'), icon: const Icon(Icons.favorite)),
-          IconButton(onPressed: () => Navigator.of(context).pushNamed('/settings'), icon: const Icon(Icons.settings)),
+          IconButton(
+              onPressed: () => Navigator.of(context).pushNamed('/favorites'),
+              icon: const Icon(Icons.favorite)),
+          IconButton(
+              onPressed: () => Navigator.of(context).pushNamed('/settings'),
+              icon: const Icon(Icons.settings)),
         ],
       ),
       body: Stack(
         children: [
           const MapWidget(),
-          Positioned(top: 12, left: 12, child: SpeedDisplay(speedMps: tp.currentSpeedMps, mode: tp.currentMode)),
-          Positioned(top: 12, right: 12, child: TrackingToggle(isTracking: tp.isTracking, onToggle: tp.toggle)),
+          Positioned(
+              top: 12,
+              left: 12,
+              child: SpeedDisplay(
+                  speedMps: tp.currentSpeedMps, mode: tp.currentMode)),
+          Positioned(
+              top: 12,
+              right: 12,
+              child: TrackingToggle(
+                  isTracking: tp.isTracking, onToggle: tp.toggle)),
           if (rp.activeRoute != null)
-            Positioned(bottom: 12, left: 12, right: 12, child: RouteDetailsPanel(route: rp.activeRoute!)),
+            Positioned(
+                bottom: 12,
+                left: 12,
+                right: 12,
+                child: RouteDetailsPanel(route: rp.activeRoute!)),
+          if (selectedStation != null)
+            StationCard(
+              station: selectedStation!,
+              isVisible: true,
+              onClose: () => setState(() => selectedStation = null),
+            ),
         ],
       ),
       floatingActionButton: FloatingActionButton(

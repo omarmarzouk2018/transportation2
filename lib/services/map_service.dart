@@ -40,8 +40,8 @@ class MapService {
   Marker createUserMarker(model.LatLng position) {
     return Marker(
       point: ll.LatLng(position.latitude, position.longitude),
-      width: AppDimensions.markerWidth,
-      height: AppDimensions.markerHeight,
+      width: AppDimensions.userMarkerWidth,
+      height: AppDimensions.userMarkerHeight,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -66,15 +66,18 @@ class MapService {
   }
 
   List<Marker> createStationMarkers(
-    List<StationModel> stations,
-    void Function(StationModel) onTap,
-    {String? selectedStationId}
-  ) {
+      List<StationModel> stations, void Function(StationModel) onTap,
+      {String? selectedStationId}) {
+    // هذه الدالة تعتمد على تحديث `selectedStationId` من الـ Widget الأب.
+    // عند تغيير هذه القيمة، سيتم إعادة بناء الـ Marker،
+    // مما يؤدي إلى تمرير قيمة جديدة لـ `isSelected` إلى `StationMarkerWidget`.
+    // هذا التغيير هو ما يشغل حركة التحديث داخل `StationMarkerWidget`.
+
     return stations.map((station) {
       return Marker(
-        point: ll.LatLng(station.location.latitude, station.location.longitude),
         width: AppDimensions.stationMarkerWidth,
         height: AppDimensions.stationMarkerHeight,
+        point: ll.LatLng(station.location.latitude, station.location.longitude),
         child: StationMarkerWidget(
           station: station,
           onTap: () => onTap(station),

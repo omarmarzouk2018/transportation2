@@ -19,7 +19,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   StationModel? selectedStation;
 
-void _onStationTap(StationModel station) {
+  void _onStationTap(StationModel station) {
     setState(() {
       selectedStation = station;
     });
@@ -67,7 +67,7 @@ void _onStationTap(StationModel station) {
       ),
       body: Stack(
         children: [
-          const MapWidget(),
+          MapWidget(onStationTap: _onStationTap, onMapTap: _closeCard),
           Positioned(
               top: 12,
               left: 12,

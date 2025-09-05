@@ -1,12 +1,10 @@
-
 class AppDimensions {
-  // User marker
-  static const double markerWidth = 60.0;
-  static const double markerHeight = 60.0;
-
+  // User marker outer box (ياخد كل الحجم المتوقع)
+  static const double userMarkerWidth = 30.0;
+  static const double userMarkerHeight = 40.0;
   // Station marker outer box (ياخد كل الحجم المتوقع)
-  static const double stationMarkerWidth = 84.0;
-  static const double stationMarkerHeight = 84.0;
+  static const double stationMarkerWidth = 40.0;
+  static const double stationMarkerHeight = 90.0;
 
   // Station icon sizes
   static const double stationIconSelected = 50.0;

@@ -1,4 +1,3 @@
-import 'package:alex_transit/widgets/station_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
@@ -9,8 +8,7 @@ import '../models/station_model.dart'; // where StationModel is defined
 import '../services/map_service.dart';
 import '../providers/tracking_provider.dart';
 import '../providers/route_provider.dart';
-import '../widgets/draged_bottom_sheet.dart';
-import '../widgets/station_card.dart';
+import 'modal_bottom_sheet.dart';
 // import '../data/stations_repository.dart';
 
 class MapWidget extends StatefulWidget {
@@ -18,6 +16,7 @@ class MapWidget extends StatefulWidget {
   final double initialZoom;
   final bool allowDestinationTap;
   final void Function(StationModel)? onStationTap;
+  final VoidCallback? onMapTap;
 
   const MapWidget({
     Key? key,
@@ -25,54 +24,43 @@ class MapWidget extends StatefulWidget {
     this.initialZoom = 14.0,
     this.allowDestinationTap = true,
     this.onStationTap,
+    this.onMapTap,
   }) : super(key: key);
 
   @override
   State<MapWidget> createState() => _MapWidgetState();
 }
 
-String? selectedStationId;
-
 class _MapWidgetState extends State<MapWidget> {
   final MapController _controller = MapController();
   bool nightMode = false;
   List<Marker> stationMarkers = [];
+  String? selectedStationId;
 
   @override
   void initState() {
     super.initState();
-    _updateMarkers();
-    widget.onStationTap;
+    _loadStations();
   }
 
-  void _updateMarkers({String? selectedId}) {
+  void _loadStations({String? selectedId}) {
     setState(() {
-      selectedStationId = selectedId ?? selectedStationId;
       stationMarkers = MapService.instance.createStationMarkers(
         StationModel.stationsList,
         _onStationTap,
-        selectedStationId: selectedStationId,
+        selectedStationId: selectedId ?? selectedStationId,
       );
     });
   }
 
   void _onStationTap(StationModel station) {
-    _updateMarkers(selectedId: station.id);
-    // showModalBottomSheet(
-    //   context: context,
-    //   isScrollControlled: true,
-    //   backgroundColor: Colors.transparent,
-    //   barrierColor: Colors.transparent,
-    //   useSafeArea: true,
-    //   builder: (_) {
-    //     return DragedBottomSheet(station: station);
-    //   },
-    // );
+    _loadStations(selectedId: station.id);
     // Handle card tap
     if (widget.onStationTap != null) {
       widget.onStationTap!(station);
     }
   }
+  
 
   @override
   Widget build(BuildContext context) {
@@ -94,10 +82,12 @@ class _MapWidgetState extends State<MapWidget> {
     final tileLayer = MapService.instance.buildTileLayer(nightMode);
 
     final markers = <Marker>[];
+
     if (tracking.currentPosition != null) {
       markers
           .add(MapService.instance.createUserMarker(tracking.currentPosition!));
     }
+    
     markers.addAll(stationMarkers);
 
     final polylines = <Polyline>[];
@@ -123,41 +113,28 @@ class _MapWidgetState extends State<MapWidget> {
     return FlutterMap(
       mapController: _controller,
       options: MapOptions(
-        initialCenter: center,
-        initialZoom: widget.initialZoom,
-        minZoom: 13.5,
-        maxZoom: 20,
-        onTap: widget.allowDestinationTap
-            ? (tapPos, latlng) {
-                final dest = LatLng(latlng.latitude, latlng.longitude);
-                showModalBottomSheet(
-                  context: context,
-                  builder: (_) {
-                    return Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            'اذهب إلى هذا المكان',
-                            style: TextStyle(fontSize: 16),
-                          ),
-                          const SizedBox(height: 8),
-                          ElevatedButton(
-                            onPressed: () {
-                              routeProv.calculateAndSetRoute(dest);
-                              Navigator.of(context).pop();
-                            },
-                            child: const Text('تأكيد'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              }
-            : null,
-      ),
+          initialCenter: center,
+          initialZoom: widget.initialZoom,
+          minZoom: 13.5,
+          maxZoom: 20,
+          onTap: (tapPos, latlng) {
+            if (widget.onMapTap != null) {
+              widget.onMapTap!();
+            }
+            if (widget.allowDestinationTap) {
+              final dest = LatLng(latlng.latitude, latlng.longitude);
+              setState(() {
+                selectedStationId = null; // Deselect station on map tap
+                _loadStations(selectedId: null);
+              });
+              showModalBottomSheet(
+                context: context,
+                builder: (_) {
+                  return ModalBottomSheet(routeProv: routeProv, dest: dest);
+                },
+              );
+            }
+          }),
       children: [
         tileLayer,
         if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),

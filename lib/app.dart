@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'config/app_config.dart';
 import 'providers/tracking_provider.dart';
 import 'providers/route_provider.dart';
+import 'providers/station_provider.dart';
 import 'services/storage_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/favorites_screen.dart';
@@ -24,6 +25,7 @@ class App extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => TrackingProvider()),
         ChangeNotifierProvider(create: (_) => RouteProvider()),
+        ChangeNotifierProvider(create: (_) => StationProvider()),
         FutureProvider<List?>(
           create: (_) => _loadInitialFavorites(),
           initialData: const [],

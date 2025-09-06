@@ -6,6 +6,7 @@ import '../widgets/tracking_toggle.dart';
 import '../widgets/route_details_panel.dart';
 import '../providers/tracking_provider.dart';
 import '../providers/route_provider.dart';
+import '../providers/station_provider.dart';
 import '../models/station_model.dart';
 import '../widgets/station_card.dart';
 
@@ -17,37 +18,77 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  StationModel? selectedStation;
+  StationProvider get _stationProvider =>
+      Provider.of<StationProvider>(context, listen: false);
 
   void _onStationTap(StationModel station) {
-    setState(() {
-      selectedStation = station;
-    });
+    _stationProvider.selectStation(station);
   }
 
   void _closeCard() {
-    setState(() {
-      selectedStation = null;
-    });
+    _stationProvider.deselectStation();
+  }
+
+  Widget _buildStationCard() {
+    return Consumer<StationProvider>(
+      builder: (context, stationProvider, child) {
+        final station = stationProvider.selectedStation;
+        if (station == null) return const SizedBox.shrink();
+
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.8),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              )),
+              child: FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOut,
+                ),
+                child: SizeTransition(
+                  axis: Axis.vertical,
+                  sizeFactor: CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOut,
+                  ),
+                  child: child,
+                ),
+              ),
+            );
+          },
+          child: StationCard(
+            key: ValueKey(station.id),
+            station: station,
+            isVisible: true,
+            onClose: _closeCard,
+            // onMarkerColorChange: _onMarkerColorChange,
+          ),
+        );
+      },
+    );
   }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     final rp = Provider.of<RouteProvider>(context, listen: false);
     rp.loadFavorites();
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // final tp = Provider.of<TrackingProvider>(context, listen: false);
-    if (state == AppLifecycleState.paused) {
-      // preserve state
-    } else if (state == AppLifecycleState.resumed) {
-      // resume if needed
-    }
-  }
+  void didChangeAppLifecycleState(AppLifecycleState state) {}
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +108,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
       body: Stack(
         children: [
-          MapWidget(onStationTap: _onStationTap, onMapTap: _closeCard),
+          MapWidget(
+            onStationTap: _onStationTap,
+            onMapTap: _closeCard,
+          ),
           Positioned(
               top: 12,
               left: 12,
@@ -84,17 +128,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 left: 12,
                 right: 12,
                 child: RouteDetailsPanel(route: rp.activeRoute!)),
-          if (selectedStation != null)
-            StationCard(
-              station: selectedStation!,
-              isVisible: true,
-              onClose: () => setState(() => selectedStation = null),
-            ),
+          _buildStationCard(),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // center map to current user location - omitted for brevity
+          // center map to current user location
         },
         child: const Icon(Icons.my_location),
       ),

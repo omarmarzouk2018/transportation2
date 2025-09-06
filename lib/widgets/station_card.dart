@@ -18,47 +18,78 @@ class StationCard extends StatefulWidget {
 }
 
 class _StationCardState extends State<StationCard>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _opacityAnimation;
+  late Animation<double> _heightAnimation;
+  late Animation<double> _rotationAnimation;
+
+  Function(bool) _onMarkerColorChange = (bool value) {};
+  String? _previousStationId;
 
   @override
   void initState() {
     super.initState();
+
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 1100),
+      duration: const Duration(milliseconds: 500),
       vsync: this,
     );
 
-    // تعريف تسلسل للحركة لجعلها أكثر طبيعية
-    final curvedAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.elasticOut, // منحنى مرن يعطي إحساساً بالارتداد اللطيف
-    );
-
     _scaleAnimation =
-        Tween<double>(begin: 0.0, end: 1.0).animate(curvedAnimation);
+        Tween<double>(begin: 0.6, end: 1.0).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.elasticOut,
+    ));
     _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
-            .animate(curvedAnimation);
+        Tween<Offset>(begin: const Offset(0, 1.0), end: Offset.zero)
+            .animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+    ));
     _opacityAnimation =
-        Tween<double>(begin: 0.0, end: 1.0).animate(curvedAnimation);
+        Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeIn,
+    ));
+    _heightAnimation =
+        Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    ));
+    _rotationAnimation =
+        Tween<double>(begin: -0.05, end: 0.0).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    ));
 
-    // تشغيل الحركة عند ظهور الودجت
+    // لو الكارت ظاهر من البداية
     if (widget.isVisible) {
       _controller.forward();
+      _onMarkerColorChange(true);
     }
   }
 
   @override
   void didUpdateWidget(StationCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // مراقبة تغير الخاصية isVisible وتشغيل الحركة بناءً عليها
-    if (widget.isVisible && !oldWidget.isVisible) {
+
+    // لما المحطة تتغير
+    if (widget.station.id != oldWidget.station.id) {
+      _previousStationId = oldWidget.station.id;
+      _controller.reset();
+
+      if (widget.isVisible) {
+        _controller.forward();
+      }
+    }
+
+    // لما خاصية الظهور تتغير
+    if (widget.isVisible && !_controller.isAnimating) {
       _controller.forward();
-    } else if (!widget.isVisible && oldWidget.isVisible) {
+    } else if (!widget.isVisible) {
       _controller.reverse();
     }
   }
@@ -71,7 +102,6 @@ class _StationCardState extends State<StationCard>
 
   @override
   Widget build(BuildContext context) {
-    // إذا لم يكن الكارد مرئياً، لا تعرض أي شيء
     if (!widget.isVisible && _controller.status == AnimationStatus.dismissed) {
       return const SizedBox.shrink();
     }
@@ -82,68 +112,149 @@ class _StationCardState extends State<StationCard>
         opacity: _opacityAnimation,
         child: SlideTransition(
           position: _slideAnimation,
-          child: ScaleTransition(
-            scale: _scaleAnimation,
-            child: Material(
-              elevation: 12, // زيادة الظل قليلاً لبروز أكبر
-              borderRadius: BorderRadius.circular(20), // زيادة استدارة الزوايا
-              color: Colors.transparent, // جعل الخلفية شفافة لتطبيق التدرج
-              child: Container(
-                width: 220, // زيادة العرض قليلاً
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  // إضافة تدرج لوني بدلاً من لون واحد
-                  gradient: const LinearGradient(
-                    colors: [Colors.blue, Colors.lightBlue],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  // إضافة ظل داخلي لإعطاء عمق أكبر
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 8,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      widget.station.name,
-                      style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      "نوع المحطة: ${widget.station.type.text}",
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-                    const SizedBox(height: 16),
-                    // تحسين زر الإغلاق
-                    ElevatedButton.icon(
-                      onPressed: widget.onClose,
-                      icon: const Icon(Icons.close, color: Colors.blueAccent),
-                      label: const Text("إغلاق"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.blue,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+          child: SizeTransition(
+            axis: Axis.vertical,
+            sizeFactor: _heightAnimation,
+            child: ScaleTransition(
+              scale: _scaleAnimation,
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  return Transform.rotate(
+                    angle: _rotationAnimation.value,
+                    child: child,
+                  );
+                },
+                child: _buildCard(context),
               ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildCard(BuildContext context) {
+    return Material(
+      elevation: 15,
+      borderRadius: BorderRadius.circular(28),
+      color: Colors.transparent,
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.75,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.blue.shade700,
+              Colors.blue.shade500,
+              Colors.blue.shade300,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+              spreadRadius: 1,
+            ),
+          ],
+          border: Border.all(
+            color: Colors.white.withOpacity(0.3),
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    _getStationIcon(widget.station.type),
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    widget.station.name,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(
+                  Icons.info_outline,
+                  color: Colors.white70,
+                  size: 18,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    "نوع المحطة: ${widget.station.type.text}",
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Align(
+              alignment: Alignment.center,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.blue.shade700,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                onPressed: () {
+                  widget.onClose();
+                  _onMarkerColorChange(false);
+                },
+                icon: const Icon(Icons.close),
+                label: const Text("إغلاق"),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _getStationIcon(StationType type) {
+    switch (type) {
+      case StationType.Bus:
+        return Icons.directions_bus;
+      case StationType.tram:
+        return Icons.tram;
+      case StationType.metro:
+        return Icons.subway;
+      case StationType.MicroBus:
+        return Icons.directions_bus;
+      default:
+        return Icons.location_on;
+    }
   }
 }

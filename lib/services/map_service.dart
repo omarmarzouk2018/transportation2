@@ -7,6 +7,8 @@ import '../models/station_model.dart';
 import '../models/route_model.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import '../services/dimensions.dart';
+import 'package:provider/provider.dart';
+import '../providers/station_provider.dart';
 
 class MapService {
   MapService._privateConstructor();
@@ -65,14 +67,15 @@ class MapService {
     );
   }
 
-  List<Marker> createStationMarkers(
+  List<Marker> createStationMarkers(BuildContext context,
       List<StationModel> stations, void Function(StationModel) onTap,
       {String? selectedStationId}) {
     // هذه الدالة تعتمد على تحديث `selectedStationId` من الـ Widget الأب.
     // عند تغيير هذه القيمة، سيتم إعادة بناء الـ Marker،
     // مما يؤدي إلى تمرير قيمة جديدة لـ `isSelected` إلى `StationMarkerWidget`.
     // هذا التغيير هو ما يشغل حركة التحديث داخل `StationMarkerWidget`.
-
+    final stationProvider =
+        Provider.of<StationProvider>(context, listen: false);
     return stations.map((station) {
       return Marker(
         width: AppDimensions.stationMarkerWidth,
@@ -80,8 +83,8 @@ class MapService {
         point: ll.LatLng(station.location.latitude, station.location.longitude),
         child: StationMarkerWidget(
           station: station,
-          onTap: () => onTap(station),
-          isSelected: selectedStationId == station.id,
+          onTap: () => stationProvider.selectStation(station),
+          isSelected: stationProvider.selectedStationId == station.id,
         ),
       );
     }).toList();

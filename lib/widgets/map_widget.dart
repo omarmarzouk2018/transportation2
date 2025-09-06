@@ -2,16 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:provider/provider.dart';
+
 import '../models/lat_lng.dart';
 import '../models/leg_model.dart'; // where LegType is defined
 import '../models/station_model.dart'; // where StationModel is defined
 import '../services/map_service.dart';
 import '../providers/tracking_provider.dart';
 import '../providers/route_provider.dart';
+import '../providers/station_provider.dart';
 import 'modal_bottom_sheet.dart';
-// import '../data/stations_repository.dart';
 
-class MapWidget extends StatefulWidget {
+class MapWidget extends StatelessWidget {
   final LatLng? initialCenter;
   final double initialZoom;
   final bool allowDestinationTap;
@@ -28,50 +29,13 @@ class MapWidget extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<MapWidget> createState() => _MapWidgetState();
-}
-
-class _MapWidgetState extends State<MapWidget> {
-  final MapController _controller = MapController();
-  bool nightMode = false;
-  List<Marker> stationMarkers = [];
-  String? selectedStationId;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadStations();
-  }
-
-  void _loadStations({String? selectedId}) {
-    setState(() {
-      stationMarkers = MapService.instance.createStationMarkers(
-        StationModel.stationsList,
-        _onStationTap,
-        selectedStationId: selectedId ?? selectedStationId,
-      );
-    });
-  }
-
-  void _onStationTap(StationModel station) {
-    _loadStations(selectedId: station.id);
-    // Handle card tap
-    if (widget.onStationTap != null) {
-      widget.onStationTap!(station);
-    }
-  }
-  
-
-  @override
   Widget build(BuildContext context) {
-    final tracking = Provider.of<TrackingProvider>(context);
-    final routeProv = Provider.of<RouteProvider>(context);
+    final tracking = context.watch<TrackingProvider>();
+    final routeProv = context.watch<RouteProvider>();
+    final stationProv = context.watch<StationProvider>();
 
-    final center = widget.initialCenter != null
-        ? ll.LatLng(
-            widget.initialCenter!.latitude,
-            widget.initialCenter!.longitude,
-          )
+    final center = initialCenter != null
+        ? ll.LatLng(initialCenter!.latitude, initialCenter!.longitude)
         : (tracking.currentPosition != null
             ? ll.LatLng(
                 tracking.currentPosition!.latitude,
@@ -79,16 +43,27 @@ class _MapWidgetState extends State<MapWidget> {
               )
             : const ll.LatLng(31.21564, 29.95527)); // إفتراضي: إسكندرية
 
-    final tileLayer = MapService.instance.buildTileLayer(nightMode);
+    final tileLayer = MapService.instance.buildTileLayer(false);
 
     final markers = <Marker>[];
-
     if (tracking.currentPosition != null) {
-      markers
-          .add(MapService.instance.createUserMarker(tracking.currentPosition!));
+      markers.add(
+        MapService.instance.createUserMarker(tracking.currentPosition!),
+      );
     }
-    
-    markers.addAll(stationMarkers);
+
+    // الماركرات بتتبني من البروفايدر
+    markers.addAll(
+      MapService.instance.createStationMarkers(
+        context,
+        StationModel.stationsList,
+        (station) {
+          context.read<StationProvider>().selectStation(station);
+          if (onStationTap != null) onStationTap!(station);
+        },
+        selectedStationId: stationProv.selectedStation?.id,
+      ),
+    );
 
     final polylines = <Polyline>[];
     if (routeProv.activeRoute != null) {
@@ -97,7 +72,6 @@ class _MapWidgetState extends State<MapWidget> {
             ? Colors.red
             : (leg.type == LegType.walk_to ? Colors.blue : Colors.green);
 
-        // leg.points لازم تكون List<ll.LatLng> أو List<LatLng> من latlong2
         polylines.add(
           Polyline(
             points: leg.geometry
@@ -111,30 +85,31 @@ class _MapWidgetState extends State<MapWidget> {
     }
 
     return FlutterMap(
-      mapController: _controller,
+      mapController: MapController(),
       options: MapOptions(
-          initialCenter: center,
-          initialZoom: widget.initialZoom,
-          minZoom: 13.5,
-          maxZoom: 20,
-          onTap: (tapPos, latlng) {
-            if (widget.onMapTap != null) {
-              widget.onMapTap!();
-            }
-            if (widget.allowDestinationTap) {
-              final dest = LatLng(latlng.latitude, latlng.longitude);
-              setState(() {
-                selectedStationId = null; // Deselect station on map tap
-                _loadStations(selectedId: null);
-              });
-              showModalBottomSheet(
-                context: context,
-                builder: (_) {
-                  return ModalBottomSheet(routeProv: routeProv, dest: dest);
-                },
-              );
-            }
-          }),
+        initialCenter: center,
+        initialZoom: initialZoom,
+        minZoom: 13.5,
+        maxZoom: 20,
+        onTap: (tapPos, latlng) {
+          if (onMapTap != null) onMapTap!();
+
+          if (allowDestinationTap) {
+            final dest = LatLng(latlng.latitude, latlng.longitude);
+
+            // إلغاء تحديد المحطة
+            context.read<StationProvider>().clearStation();
+
+            showModalBottomSheet(
+              context: context,
+              builder: (_) => ModalBottomSheet(
+                routeProv: routeProv,
+                dest: dest,
+              ),
+            );
+          }
+        },
+      ),
       children: [
         tileLayer,
         if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),

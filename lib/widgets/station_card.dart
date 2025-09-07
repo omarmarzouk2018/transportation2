@@ -27,7 +27,6 @@ class _StationCardState extends State<StationCard>
   late Animation<double> _rotationAnimation;
 
   Function(bool) _onMarkerColorChange = (bool value) {};
-  String? _previousStationId;
 
   @override
   void initState() {
@@ -78,7 +77,6 @@ class _StationCardState extends State<StationCard>
 
     // لما المحطة تتغير
     if (widget.station.id != oldWidget.station.id) {
-      _previousStationId = oldWidget.station.id;
       _controller.reset();
 
       if (widget.isVisible) {
@@ -155,14 +153,14 @@ class _StationCardState extends State<StationCard>
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withAlpha(76), // 0.3 * 255 = 76
               blurRadius: 15,
               offset: const Offset(0, 8),
               spreadRadius: 1,
             ),
           ],
           border: Border.all(
-            color: Colors.white.withOpacity(0.3),
+            color: Colors.white.withAlpha(76), // 0.3 * 255 = 76
             width: 1.5,
           ),
         ),

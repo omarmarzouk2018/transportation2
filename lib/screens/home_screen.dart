@@ -80,15 +80,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final rp = Provider.of<RouteProvider>(context, listen: false);
-    rp.loadFavorites();
-  }
+// @override
+// void didChangeDependencies() {
+//   super.didChangeDependencies();
+//   WidgetsBinding.instance.addPostFrameCallback((_) {
+//     final rp = Provider.of<RouteProvider>(context, listen: false);
+//     rp.loadFavorites();
+//   });
+// }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {}
+
+  // @override
+  // void didChangeAppLifecycleState(AppLifecycleState state) {}
 
   @override
   Widget build(BuildContext context) {

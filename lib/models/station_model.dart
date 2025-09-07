@@ -67,6 +67,12 @@ class StationModel {
     location: LatLng(31.209957, 29.882043),
     type: StationType.MicroBus,
   );
+  static final StationModel sidiGaber = StationModel(
+    id: 'st_008',
+    name: 'سيدي جابر',
+    location: LatLng(31.218819, 29.943111),
+    type: StationType.MicroBus,
+  );
 
   static final List<StationModel> stationsList = [
     abuQir,

@@ -10,7 +10,7 @@ import '../services/map_service.dart';
 import '../providers/tracking_provider.dart';
 import '../providers/route_provider.dart';
 import '../providers/station_provider.dart';
-import 'modal_bottom_sheet.dart';
+import 'route_card.dart';
 
 class MapWidget extends StatelessWidget {
   final LatLng? initialCenter;
@@ -30,9 +30,9 @@ class MapWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tracking = context.watch<TrackingProvider>();
-    final routeProv = context.watch<RouteProvider>();
-    final stationProv = context.watch<StationProvider>();
+    final tracking = context.read<TrackingProvider>();
+    final routeProv = context.read<RouteProvider>();
+    final stationProv = context.read<StationProvider>();
 
     final center = initialCenter != null
         ? ll.LatLng(initialCenter!.latitude, initialCenter!.longitude)
@@ -56,12 +56,7 @@ class MapWidget extends StatelessWidget {
     markers.addAll(
       MapService.instance.createStationMarkers(
         context,
-        StationModel.stationsList,
-        (station) {
-          context.read<StationProvider>().selectStation(station);
-          if (onStationTap != null) onStationTap!(station);
-        },
-        selectedStationId: stationProv.selectedStation?.id,
+        stationProv.stations,
       ),
     );
 
@@ -98,14 +93,11 @@ class MapWidget extends StatelessWidget {
             final dest = LatLng(latlng.latitude, latlng.longitude);
 
             // إلغاء تحديد المحطة
-            context.read<StationProvider>().clearStation();
+            context.read<StationProvider>().deselectStation();
 
-            showModalBottomSheet(
-              context: context,
-              builder: (_) => ModalBottomSheet(
-                routeProv: routeProv,
-                dest: dest,
-              ),
+            RouteCard(
+              routeProv: routeProv,
+              dest: dest,
             );
           }
         },

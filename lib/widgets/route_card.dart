@@ -1,0 +1,44 @@
+import 'package:flutter/material.dart';
+import '../models/lat_lng.dart';
+import '../providers/route_provider.dart';
+
+class RouteCard extends StatelessWidget {
+  const RouteCard({
+    super.key,
+    required this.routeProv,
+    required this.dest,
+  });
+
+  final RouteProvider routeProv;
+  final LatLng dest;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.all(12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'اذهب إلى هذا المكان',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () {
+                routeProv.calculateAndSetRoute(dest);
+              },
+              child: const Text('تأكيد'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

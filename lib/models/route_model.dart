@@ -36,8 +36,7 @@ class RouteModel {
 
   factory RouteModel.fromJson(Map<String, dynamic> json) {
     final origin = LatLng.fromJson(json['origin'] as Map<String, dynamic>);
-    final dest =
-        LatLng.fromJson(json['destination'] as Map<String, dynamic>);
+    final dest = LatLng.fromJson(json['destination'] as Map<String, dynamic>);
     final legs = <dynamic>[];
     if (json['legs'] is List) {
       legs.addAll(json['legs'] as List);
@@ -53,7 +52,8 @@ class RouteModel {
       legs: legModels,
       totalDistanceMeters:
           (json['totalDistanceMeters'] as num?)?.toDouble() ?? 0.0,
-      totalDurationSeconds: (json['totalDurationSeconds'] as num?)?.toInt() ?? 0,
+      totalDurationSeconds:
+          (json['totalDurationSeconds'] as num?)?.toInt() ?? 0,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String).toUtc()
           : DateTime.now().toUtc(),
@@ -61,7 +61,9 @@ class RouteModel {
   }
 
   void computeTotals() {
-    totalDistanceMeters = legs.fold<double>(0.0, (sum, l) => sum + l.distanceMeters);
-    totalDurationSeconds = legs.fold<int>(0, (sum, l) => sum + l.durationSeconds);
+    totalDistanceMeters =
+        legs.fold<double>(0.0, (sum, l) => sum + l.distanceMeters);
+    totalDurationSeconds =
+        legs.fold<int>(0, (sum, l) => sum + l.durationSeconds);
   }
 }

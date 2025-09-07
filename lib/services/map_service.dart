@@ -67,15 +67,12 @@ class MapService {
     );
   }
 
-  List<Marker> createStationMarkers(BuildContext context,
-      List<StationModel> stations, void Function(StationModel) onTap,
-      {String? selectedStationId}) {
-    // هذه الدالة تعتمد على تحديث `selectedStationId` من الـ Widget الأب.
-    // عند تغيير هذه القيمة، سيتم إعادة بناء الـ Marker،
-    // مما يؤدي إلى تمرير قيمة جديدة لـ `isSelected` إلى `StationMarkerWidget`.
-    // هذا التغيير هو ما يشغل حركة التحديث داخل `StationMarkerWidget`.
-    final stationProvider =
-        Provider.of<StationProvider>(context, listen: false);
+  List<Marker> createStationMarkers(
+      BuildContext context, List<StationModel> stations) {
+    // this function updates `selectedStationId` from the parent widget.
+    // When this value changes, the marker will be rebuilt,
+    // causing a new value to be passed to `isSelected` in `StationMarkerWidget`.
+    // This change is what drives the update animation inside `StationMarkerWidget`.
     return stations.map((station) {
       return Marker(
         width: AppDimensions.stationMarkerWidth,
@@ -83,8 +80,6 @@ class MapService {
         point: ll.LatLng(station.location.latitude, station.location.longitude),
         child: StationMarkerWidget(
           station: station,
-          onTap: () => stationProvider.selectStation(station),
-          isSelected: stationProvider.selectedStationId == station.id,
         ),
       );
     }).toList();

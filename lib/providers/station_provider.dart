@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../models/station_model.dart';
 
 class StationProvider with ChangeNotifier {
+  List<StationModel> _stations = StationModel.stationsList;
+  List<StationModel> get stations => _stations;
+  
   StationModel? _selectedStation;
 
   StationModel? get selectedStation => _selectedStation;
@@ -11,16 +14,23 @@ class StationProvider with ChangeNotifier {
 
   void selectStation(StationModel station) {
     _selectedStation = station;
-    _selectedStationId = station.id;
     notifyListeners();
   }
 
   void deselectStation() {
     _selectedStation = null;
-    _selectedStationId = null;
     notifyListeners();
   }
 
+  bool isStationSelected(StationModel station) {
+    return _selectedStation?.id == station.id;
+  }
+
+  void setStations(List<StationModel> stations) {
+    _stations = stations;
+    notifyListeners();
+  }
+  
   void updateStationSelection(String? stationId, bool isSelected) {
     if (isSelected && stationId != null) {
       // ابحث عن المحطة بناءً على المعرف

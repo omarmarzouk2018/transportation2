@@ -82,6 +82,7 @@ class StationModel {
     victoria,
     egyptStation,
     bahary,
+    sidiGaber,
   ];
 }
 

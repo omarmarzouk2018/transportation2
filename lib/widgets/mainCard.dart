@@ -1,24 +1,23 @@
 import 'package:flutter/material.dart';
 import '../models/station_model.dart';
 
-class StationCard extends StatefulWidget {
-  final StationModel station;
+class MainCard extends StatefulWidget {
+  final Widget child;
   final VoidCallback onClose;
   final bool isVisible;
 
-  const StationCard({
+  const MainCard({
     Key? key,
-    required this.station,
+    required this.child,
     required this.onClose,
     required this.isVisible,
   }) : super(key: key);
 
   @override
-  _StationCardState createState() => _StationCardState();
+  State<MainCard> createState() => _MainCardState();
 }
 
-class _StationCardState extends State<StationCard>
-    with TickerProviderStateMixin {
+class _MainCardState extends State<MainCard> with TickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<Offset> _slideAnimation;
@@ -72,17 +71,17 @@ class _StationCardState extends State<StationCard>
   }
 
   @override
-  void didUpdateWidget(StationCard oldWidget) {
+  void didUpdateWidget(MainCard oldWidget) {
     super.didUpdateWidget(oldWidget);
 
     // لما المحطة تتغير
-    if (widget.station.id != oldWidget.station.id) {
-      _controller.reset();
+    // if (widget.station.id != oldWidget.station.id) {
+    //   _controller.reset();
 
-      if (widget.isVisible) {
-        _controller.forward();
-      }
-    }
+      // if (widget.isVisible) {
+      //   _controller.forward();
+      // }
+    // }
 
     // لما خاصية الظهور تتغير
     if (widget.isVisible && !_controller.isAnimating) {
@@ -167,33 +166,8 @@ class _StationCardState extends State<StationCard>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    _getStationIcon(widget.station.type),
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    widget.station.name,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            
+            widget.child,
             const SizedBox(height: 12),
             RowInfo(widget: widget),
             const SizedBox(height: 20),
@@ -211,7 +185,7 @@ class _StationCardState extends State<StationCard>
                 ),
                 onPressed: () {
                   widget.onClose();
-                  _onMarkerColorChange(false);
+                  // _onMarkerColorChange(false);
                 },
                 icon: const Icon(Icons.close),
                 label: const Text("إغلاق"),
@@ -245,7 +219,7 @@ class RowInfo extends StatelessWidget {
     required this.widget,
   });
 
-  final StationCard widget;
+  final MainCard widget;
 
   @override
   Widget build(BuildContext context) {
@@ -270,3 +244,31 @@ class RowInfo extends StatelessWidget {
     );
   }
 }
+
+co = Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    _getStationIcon(widget.station.type),
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    widget.station.name,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),

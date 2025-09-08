@@ -9,21 +9,32 @@ import '../models/station_model.dart';
 class RouteProvider extends ChangeNotifier {
   final RoutingService _routing = RoutingService.instance;
   final StorageService _storage = StorageService.instance;
+  
+  LatLng? _destination;
+  LatLng? get destination => _destination;
 
   RouteModel? activeRoute;
   bool isLoading = false;
   List<RouteModel> favorites = [];
 
+  void setDestination(LatLng dest) {
+    _destination = dest;
+    notifyListeners();
+  }
+
   Future<void> calculateAndSetRoute(LatLng destination) async {
     isLoading = true;
     notifyListeners();
     try {
-      final origin = await Future.value(StationsRepository.getLastKnownLocation() ?? LatLng(31.2001, 29.9187));
+      final origin = await Future.value(
+          StationsRepository.getLastKnownLocation() ??
+              LatLng(31.2001, 29.9187));
       // final stations = await StationsRepository.loadStations();
       final stations = StationModel.stationsList;
       final boarding = _routing.findNearestStation(origin, stations);
       final alight = _routing.findNearestStation(destination, stations);
-      final route = await _routing.composeMultiLegRoute(origin, destination, boarding, alight);
+      final route = await _routing.composeMultiLegRoute(
+          origin, destination, boarding, alight);
       activeRoute = route;
       isLoading = false;
       notifyListeners();

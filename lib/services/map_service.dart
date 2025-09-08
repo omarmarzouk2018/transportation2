@@ -6,15 +6,21 @@ import '../models/lat_lng.dart' as model;
 import '../models/station_model.dart';
 import '../models/route_model.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
+import '../providers/tracking_provider.dart';
 import '../services/dimensions.dart';
 import 'package:provider/provider.dart';
 import '../providers/station_provider.dart';
+import '../providers/route_provider.dart';
 
 class MapService {
   MapService._privateConstructor();
   static final MapService instance = MapService._privateConstructor();
 
   final String api_key = '32f44222-373c-47ef-bd43-a09409ab0487';
+
+  /// Map controller (singleton)
+  final MapController mapController = MapController();
+
   // create one time here avoid rebuild at every build
   final FMTCTileProvider _tileProvider = FMTCTileProvider.new(
     stores: {
@@ -39,7 +45,17 @@ class MapService {
     );
   }
 
-  Marker createUserMarker(model.LatLng position) {
+  Marker createUserMarker(BuildContext context) {
+    final trackingProvider = context.watch<TrackingProvider>();
+    final position = trackingProvider.currentPosition;
+    if (position == null) {
+      if (position == null)
+        return Marker(
+            point: ll.LatLng(0, 0),
+            width: 0,
+            height: 0,
+            child: const SizedBox.shrink());
+    }
     return Marker(
       point: ll.LatLng(position.latitude, position.longitude),
       width: AppDimensions.userMarkerWidth,
@@ -58,6 +74,36 @@ class MapService {
               ),
               child: const Text(
                 'أنت',
+                style: TextStyle(color: Colors.white, fontSize: 10),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Marker createDestinationMarker(BuildContext context) {
+    final _routeProvider = context.read<RouteProvider>();
+    final position = _routeProvider.destination!;
+    return Marker(
+      point: ll.LatLng(position.latitude, position.longitude),
+      width: AppDimensions.userMarkerWidth,
+      height: AppDimensions.userMarkerHeight,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const Icon(Icons.location_on, size: 36, color: Colors.red),
+          Positioned(
+            bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withAlpha(50),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text(
+                'الوجهة',
                 style: TextStyle(color: Colors.white, fontSize: 10),
               ),
             ),
@@ -107,6 +153,19 @@ class MapService {
       longitudes.reduce((a, b) => a > b ? a : b),
     );
     return LatLngBounds(sw, ne);
+  }
+
+  /// Moves map to a specific LatLng with zoom
+  void moveToPosition(
+      BuildContext context, model.LatLng? position, double zoom) {
+    if (position != null) {
+      mapController.move(
+          ll.LatLng(position.latitude, position.longitude), zoom);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('الموقع الحالي غير متوفر')),
+      );
+    }
   }
 }
 

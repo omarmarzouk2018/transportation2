@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
-import '../models/station_model.dart';
 
 class StationCard extends StatefulWidget {
-  final StationModel station;
   final VoidCallback onClose;
   final bool isVisible;
 
   const StationCard({
     Key? key,
-    required this.station,
     required this.onClose,
     required this.isVisible,
   }) : super(key: key);
@@ -74,15 +71,6 @@ class _StationCardState extends State<StationCard>
   @override
   void didUpdateWidget(StationCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-
-    // لما المحطة تتغير
-    if (widget.station.id != oldWidget.station.id) {
-      _controller.reset();
-
-      if (widget.isVisible) {
-        _controller.forward();
-      }
-    }
 
     // لما خاصية الظهور تتغير
     if (widget.isVisible && !_controller.isAnimating) {
@@ -176,7 +164,7 @@ class _StationCardState extends State<StationCard>
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    _getStationIcon(widget.station.type),
+                    Icons.train,
                     color: Colors.white,
                     size: 24,
                   ),
@@ -184,7 +172,7 @@ class _StationCardState extends State<StationCard>
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
-                    widget.station.name,
+                    'حدد هذا الموقع كنقطة نهاية للرحلة',
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -194,9 +182,6 @@ class _StationCardState extends State<StationCard>
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            RowInfo(widget: widget),
-            const SizedBox(height: 20),
             Align(
               alignment: Alignment.center,
               child: ElevatedButton.icon(
@@ -220,53 +205,6 @@ class _StationCardState extends State<StationCard>
           ],
         ),
       ),
-    );
-  }
-
-  IconData _getStationIcon(StationType type) {
-    switch (type) {
-      case StationType.Bus:
-        return Icons.directions_bus;
-      case StationType.tram:
-        return Icons.tram;
-      case StationType.metro:
-        return Icons.subway;
-      case StationType.MicroBus:
-        return Icons.directions_bus;
-      default:
-        return Icons.location_on;
-    }
-  }
-}
-
-class RowInfo extends StatelessWidget {
-  const RowInfo({
-    super.key,
-    required this.widget,
-  });
-
-  final StationCard widget;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Icon(
-          Icons.info_outline,
-          color: Colors.white70,
-          size: 18,
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            "نوع المحطة: ${widget.station.type.text}",
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 16,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

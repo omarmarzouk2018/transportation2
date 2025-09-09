@@ -1,16 +1,14 @@
+import 'package:provider/provider.dart';
+import 'package:alex_transit/providers/station_provider.dart';
 import 'package:flutter/material.dart';
 import '../models/station_model.dart';
 
 class StationCard extends StatefulWidget {
   final StationModel station;
-  final VoidCallback onClose;
-  final bool isVisible;
 
   const StationCard({
     Key? key,
     required this.station,
-    required this.onClose,
-    required this.isVisible,
   }) : super(key: key);
 
   @override
@@ -31,6 +29,8 @@ class _StationCardState extends State<StationCard>
   @override
   void initState() {
     super.initState();
+    final _stationProvider =
+        Provider.of<StationProvider>(context, listen: false);
 
     _controller = AnimationController(
       duration: const Duration(milliseconds: 500),
@@ -65,7 +65,7 @@ class _StationCardState extends State<StationCard>
     ));
 
     // لو الكارت ظاهر من البداية
-    if (widget.isVisible) {
+    if (_stationProvider.isCardVisible) {
       _controller.forward();
       _onMarkerColorChange(true);
     }
@@ -74,20 +74,22 @@ class _StationCardState extends State<StationCard>
   @override
   void didUpdateWidget(StationCard oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final _stationProvider =
+        Provider.of<StationProvider>(context, listen: false);
 
     // لما المحطة تتغير
     if (widget.station.id != oldWidget.station.id) {
       _controller.reset();
 
-      if (widget.isVisible) {
+      if (_stationProvider.isCardVisible) {
         _controller.forward();
       }
     }
 
     // لما خاصية الظهور تتغير
-    if (widget.isVisible && !_controller.isAnimating) {
+    if (_stationProvider.isCardVisible && !_controller.isAnimating) {
       _controller.forward();
-    } else if (!widget.isVisible) {
+    } else if (!_stationProvider.isCardVisible) {
       _controller.reverse();
     }
   }
@@ -100,7 +102,10 @@ class _StationCardState extends State<StationCard>
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isVisible && _controller.status == AnimationStatus.dismissed) {
+    final _stationProvider =
+        Provider.of<StationProvider>(context, listen: false);
+    if (!_stationProvider.isCardVisible &&
+        _controller.status == AnimationStatus.dismissed) {
       return const SizedBox.shrink();
     }
 
@@ -133,6 +138,8 @@ class _StationCardState extends State<StationCard>
   }
 
   Widget _buildCard(BuildContext context) {
+    final _stationProvider = context.read<StationProvider>();
+    final _selectedStation = _stationProvider.selectedStation;
     return Material(
       elevation: 15,
       borderRadius: BorderRadius.circular(28),
@@ -176,7 +183,7 @@ class _StationCardState extends State<StationCard>
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    _getStationIcon(widget.station.type),
+                    _getStationIcon(_selectedStation!.type),
                     color: Colors.white,
                     size: 24,
                   ),
@@ -184,7 +191,7 @@ class _StationCardState extends State<StationCard>
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
-                    widget.station.name,
+                    _selectedStation!.name,
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -210,7 +217,7 @@ class _StationCardState extends State<StationCard>
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
                 onPressed: () {
-                  widget.onClose();
+                  _stationProvider.deselectStation();
                   _onMarkerColorChange(false);
                 },
                 icon: const Icon(Icons.close),
@@ -249,6 +256,8 @@ class RowInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final _stationProvider = context.read<StationProvider>();
+    final _selectedStation = _stationProvider.selectedStation;
     return Row(
       children: [
         const Icon(
@@ -259,7 +268,7 @@ class RowInfo extends StatelessWidget {
         const SizedBox(width: 6),
         Expanded(
           child: Text(
-            "نوع المحطة: ${widget.station.type.text}",
+            "نوع المحطة: ${_selectedStation!.type.text}",
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 16,

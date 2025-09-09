@@ -4,15 +4,17 @@ import 'package:provider/provider.dart';
 import '../providers/route_provider.dart';
 
 class RouteCard extends StatelessWidget {
+  final LatLng dest;
+
   const RouteCard({
     super.key,
     required this.dest,
   });
-  final LatLng dest;
 
   @override
   Widget build(BuildContext context) {
     final routeProv = Provider.of<RouteProvider>(context, listen: false);
+    
     return Card(
       margin: const EdgeInsets.all(12),
       shape: RoundedRectangleBorder(

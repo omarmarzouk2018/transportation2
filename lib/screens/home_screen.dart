@@ -11,6 +11,7 @@ import '../providers/station_provider.dart';
 import '../models/station_model.dart';
 import '../widgets/station_card.dart';
 import '../widgets/route_card.dart';
+import '../widgets/destination_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -118,14 +119,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             return _buildSlidingCard(StationCard(
               key: ValueKey(station.id),
               station: station,
-              isVisible: true,
-              onClose: _closeCard,
             ));
           }),
-          if (_routeProvider.destination != null)
-            _buildSlidingCard(RouteCard(
-              dest: _routeProvider.destination!,
-            ))
+          Consumer<StationProvider>(builder: (context, sp, _) {
+            final station = sp.selectedStation;
+            if (_routeProvider.destination != null)
+              return _buildSlidingCard(DestinationCard(
+                dest: _routeProvider.destination!,
+                onClose: _closeCard,
+                isVisible: true,
+              ));
+            return const SizedBox.shrink();
+          })
         ],
       ),
       floatingActionButton: FloatingActionButton(

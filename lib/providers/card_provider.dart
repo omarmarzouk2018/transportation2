@@ -1,14 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/station_model.dart';
 
-class StationProvider with ChangeNotifier {
-  List<StationModel> _stations = StationModel.stationsList;
-  List<StationModel> get stations => _stations;
-
-  StationModel? _selectedStation;
-  StationModel? get selectedStation => _selectedStation;
-  String? get selectedStationId => _selectedStation?.id;
-
+class CardProvider with ChangeNotifier {
   bool _isCardVisible = false;
   bool get isCardVisible => _isCardVisible;
 

@@ -70,7 +70,7 @@ class StationModel {
   static final StationModel sidiGaber = StationModel(
     id: 'st_008',
     name: 'سيدي جابر',
-    location: LatLng(31.218819, 29.943111),
+    location: LatLng(31.220148, 29.942567),
     type: StationType.MicroBus,
   );
 

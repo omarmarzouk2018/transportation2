@@ -9,7 +9,7 @@ import '../models/station_model.dart';
 class RouteProvider extends ChangeNotifier {
   final RoutingService _routing = RoutingService.instance;
   final StorageService _storage = StorageService.instance;
-  
+
   LatLng? _destination;
   LatLng? get destination => _destination;
 
@@ -19,6 +19,11 @@ class RouteProvider extends ChangeNotifier {
 
   void setDestination(LatLng dest) {
     _destination = dest;
+    notifyListeners();
+  }
+
+  void clearDestination() {
+    _destination = null;
     notifyListeners();
   }
 

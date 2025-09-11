@@ -28,12 +28,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _stationProvider.selectStation(station);
   }
 
-  void _closeCard() {
-    _stationProvider.deselectStation();
-  }
-
   Widget _buildSlidingCard(Widget child) {
-    if (child == null) return const SizedBox.shrink();
+    print('we r building now the sliding card');
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
       transitionBuilder: (Widget child, Animation<double> animation) {
@@ -112,23 +108,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 left: 12,
                 right: 12,
                 child: RouteDetailsPanel(route: _routeProvider.activeRoute!)),
-          Consumer<StationProvider>(builder: (context, sp, _) {
+          Consumer2<StationProvider, RouteProvider>(
+              builder: (context, sp, rp, _) {
             final station = sp.selectedStation;
-            if (station == null) return const SizedBox.shrink();
+            final destination = rp.destination;
+            print("station: $station");
 
-            return _buildSlidingCard(StationCard(
-              key: ValueKey(station.id),
-              station: station,
-            ));
-          }),
-          Consumer<StationProvider>(builder: (context, sp, _) {
-            final station = sp.selectedStation;
-            if (_routeProvider.destination != null)
+            if (station != null)
+              return _buildSlidingCard(StationCard(
+                key: ValueKey(station.id),
+                station: station,
+              ));
+
+            if (destination != null) {
+              print("destination: $destination");
               return _buildSlidingCard(DestinationCard(
-                dest: _routeProvider.destination!,
-                onClose: _closeCard,
+                dest: destination,
                 isVisible: true,
               ));
+            }
+
             return const SizedBox.shrink();
           })
         ],

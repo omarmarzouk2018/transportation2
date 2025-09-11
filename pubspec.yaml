@@ -45,3 +45,4 @@ flutter:
     - assets/translations.json
     - assets/stations.json
     - assets/lines.json
+    - .env

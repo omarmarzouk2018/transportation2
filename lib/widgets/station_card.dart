@@ -1,6 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:alex_transit/providers/station_provider.dart';
-import 'package:flutter/material.dart';
 import '../models/station_model.dart';
 
 class StationCard extends StatefulWidget {
@@ -140,6 +140,7 @@ class _StationCardState extends State<StationCard>
   Widget _buildCard(BuildContext context) {
     final _stationProvider = context.read<StationProvider>();
     final _selectedStation = _stationProvider.selectedStation;
+    
     return Material(
       elevation: 15,
       borderRadius: BorderRadius.circular(28),

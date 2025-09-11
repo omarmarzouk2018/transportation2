@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/station_model.dart';
 import 'package:provider/provider.dart';
 import '../providers/station_provider.dart';
+import '../providers/route_provider.dart';
 
 class StationMarkerWidget extends StatefulWidget {
   final StationModel station;
@@ -66,8 +67,10 @@ class _StationMarkerWidgetState extends State<StationMarkerWidget>
           _controller.reverse();
         }
         return GestureDetector(
-          onTap: () =>
-              context.read<StationProvider>().selectStation(widget.station),
+          onTap: () {
+            context.read<StationProvider>().selectStation(widget.station);
+            context.read<RouteProvider>().clearDestination();
+          },
           child: AnimatedBuilder(
             animation: _controller,
             builder: (context, child) {

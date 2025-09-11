@@ -6,22 +6,19 @@ import '../providers/route_provider.dart';
 
 class DestinationCard extends StatelessWidget {
   final LatLng dest;
-  final VoidCallback onClose;
   final bool isVisible;
 
   const DestinationCard({
     Key? key,
     required this.dest,
-    required this.onClose,
     required this.isVisible,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final routeProv = Provider.of<RouteProvider>(context, listen: false);
+    print('we are building the destination card');
     return MainCard(
       isVisible: isVisible,
-      onClose: onClose,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -40,7 +37,6 @@ class DestinationCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          
           Text(
             "إحداثيات: ${dest.latitude}, ${dest.longitude}",
             style: const TextStyle(color: Colors.white70, fontSize: 16),

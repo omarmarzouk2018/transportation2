@@ -1,3 +1,4 @@
+import 'package:alex_transit/config/app_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
@@ -10,6 +11,7 @@ import '../providers/tracking_provider.dart';
 import '../providers/route_provider.dart';
 import '../providers/station_provider.dart';
 import 'route_card.dart';
+import '../services/ors_service.dart';
 
 class MapWidget extends StatefulWidget {
   final LatLng? initialCenter;
@@ -34,6 +36,8 @@ class MapWidget extends StatefulWidget {
 Marker? _destinationMarker;
 
 class _MapWidgetState extends State<MapWidget> {
+  List<ll.LatLng> routePoints = [];
+
   @override
   Widget build(BuildContext context) {
     final trackingProv = context.read<TrackingProvider>();
@@ -68,25 +72,51 @@ class _MapWidgetState extends State<MapWidget> {
           )
         : const ll.LatLng(31.21564, 29.95527); // alex by default
 
-    final polylines = <Polyline>[];
-    if (_routeProvider.activeRoute != null) {
-      for (final leg in _routeProvider.activeRoute!.legs) {
-        final color = leg.type == LegType.transit
-            ? Colors.red
-            : (leg.type == LegType.walk_to ? Colors.blue : Colors.green);
+    // if (_routeProvider.activeRoute != null) {
+    // for (final leg in _routeProvider.activeRoute!.legs) {
+    // final color = leg.type == LegType.transit
+    //     ? Colors.red
+    //     : (leg.type == LegType.walk_to ? Colors.blue : Colors.green);
 
-        polylines.add(
-          Polyline(
-            points: leg.geometry
-                .map((p) => ll.LatLng(p.latitude, p.longitude))
-                .toList(),
-            strokeWidth: leg.type == LegType.transit ? 5 : 4,
-            color: color,
-          ),
-        );
-      }
+    // polylines.add(
+    //   Polyline(
+    //     points: leg.geometry
+    //         .map((p) => ll.LatLng(p.latitude, p.longitude))
+    //         .toList(),
+    //     strokeWidth: leg.type == LegType.transit ? 5 : 4,
+    //     color: color,
+    //   ),
+    // );
+    // }
+    // }
+    Future<void> _loadRoute() async {
+      final start = [
+        StationModel.sidiGaber.location.longitude,
+        StationModel.sidiGaber.location.latitude,
+      ]; // [lng, lat]
+      final end = [
+        StationModel.victoria.location.longitude,
+        StationModel.victoria.location.latitude,
+      ]; // [lng, lat]
+
+      final coords = await getRouteFromORS(start: start, end: end);
+      // coords = [[lat, lng], [lat, lng], ...]
+
+      setState(() {
+        // coords = [[lat, lng], [lat, lng] ...]
+        routePoints = coords.map((c) => ll.LatLng(c[0], c[1])).toList();
+      });
     }
 
+    // _loadRoute();
+
+    // polylines.add(
+    //   Polyline(
+    //     points: routePoints,
+    //     strokeWidth: 4,
+    //     color: Colors.red,
+    //   ),
+    // );
     return FlutterMap(
       mapController: MapService.instance.mapController,
       options: MapOptions(
@@ -96,22 +126,35 @@ class _MapWidgetState extends State<MapWidget> {
         maxZoom: 20,
         onTap: (tapPos, latlng) {
           _stationProvider.deselectStation();
+
           _routeProvider
               .setDestination(LatLng(latlng.latitude, latlng.longitude));
+          _loadRoute();
 
-          setState(() {
+          if (_routeProvider.destination != null) {
             _destinationMarker =
                 MapService.instance.createDestinationMarker(context);
-          });
+          }
         },
       ),
       children: [
         tileLayer,
-        if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),
-        MarkerLayer(markers: [
-          ...markers,
-          if (_destinationMarker != null) _destinationMarker!
-        ]),
+        if (routePoints.isNotEmpty)
+          PolylineLayer(polylines: [
+            Polyline(
+              points: routePoints,
+              strokeWidth: 4,
+              color: Colors.blue,
+            ),
+          ]),
+        Consumer<RouteProvider>(
+          builder: (context, rp, _) {
+            return MarkerLayer(markers: [
+              ...markers,
+              if (rp.destination != null) _destinationMarker!
+            ]);
+          },
+        ),
       ],
     );
   }

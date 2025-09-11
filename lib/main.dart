@@ -18,6 +18,7 @@ Future<void> main() async {
   try {
     await dotenv.load(fileName: ".env");
     AppConfig.loadFromEnv(dotenv.env);
+    print(AppConfig.orsApiKey);
   } catch (_) {
     // Non-critical on platforms without full env
   }

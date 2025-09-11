@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:alex_transit/providers/station_provider.dart';
+import '../models/station_model.dart';
+import '../providers/route_provider.dart';
 
 class MainCard extends StatefulWidget {
   final Widget child;
-  final VoidCallback onClose;
   final bool isVisible;
 
   const MainCard({
     Key? key,
     required this.child,
-    required this.onClose,
-    required this.isVisible,
+    this.isVisible = true, // default
   }) : super(key: key);
 
   @override
@@ -24,9 +26,13 @@ class _MainCardState extends State<MainCard> with TickerProviderStateMixin {
   late Animation<double> _heightAnimation;
   late Animation<double> _rotationAnimation;
 
+  Function(bool) _onMarkerColorChange = (bool value) {};
+
   @override
   void initState() {
     super.initState();
+    final _stationProvider =
+        Provider.of<StationProvider>(context, listen: false);
 
     _controller = AnimationController(
       duration: const Duration(milliseconds: 500),
@@ -49,16 +55,19 @@ class _MainCardState extends State<MainCard> with TickerProviderStateMixin {
     _rotationAnimation = Tween<double>(begin: -0.05, end: 0.0)
         .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
-    if (widget.isVisible) _controller.forward();
+    if (widget.isVisible) {
+      _controller.forward();
+      _onMarkerColorChange(true);
+    }
   }
 
   @override
   void didUpdateWidget(MainCard oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (widget.isVisible && !_controller.isAnimating) {
+    if (widget.isVisible) {
       _controller.forward();
-    } else if (!widget.isVisible) {
+    } else {
       _controller.reverse();
     }
   }
@@ -104,6 +113,9 @@ class _MainCardState extends State<MainCard> with TickerProviderStateMixin {
   }
 
   Widget _buildCard(BuildContext context) {
+    final _stationProvider = context.read<StationProvider>();
+    final _routeProvider = context.read<RouteProvider>();
+
     return Material(
       elevation: 15,
       borderRadius: BorderRadius.circular(28),
@@ -152,7 +164,11 @@ class _MainCardState extends State<MainCard> with TickerProviderStateMixin {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
-                onPressed: widget.onClose,
+                onPressed: () {
+                  _stationProvider.deselectStation();
+                  _onMarkerColorChange(false);
+                  _routeProvider.clearDestination();
+                },
                 icon: const Icon(Icons.close),
                 label: const Text("إغلاق"),
               ),

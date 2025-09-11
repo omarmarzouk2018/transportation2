@@ -7,29 +7,21 @@ class AppConfig {
   static String notificationIcon = 'app_icon';
   static bool defaultNightMode = false;
 
-  static Map<String, double> defaultSpeedThresholds = const {
+  static const Map<String, double> defaultSpeedThresholds = {
     'stationary': 0.5,
     'walking': 2.0,
     'driving': 6.0,
   };
 
   static void loadFromEnv(Map<String, String> env) {
-    if (env.containsKey('ORS_API_KEY')) {
-      orsApiKey = env['ORS_API_KEY'] ?? '';
-    }
-    if (env.containsKey('OSRM_BASE_URL')) {
-      osrmBaseUrl = env['OSRM_BASE_URL'] ?? osrmBaseUrl;
-    }
-    if (env.containsKey('HIVE_BOX_NAME')) {
-      hiveBoxName = env['HIVE_BOX_NAME'] ?? hiveBoxName;
-    }
-    if (env.containsKey('NOTIFICATION_ICON')) {
-      notificationIcon = env['NOTIFICATION_ICON'] ?? notificationIcon;
-    }
-    // debug print
+    orsApiKey = env['ORS_API_KEY'] ?? orsApiKey;
+    osrmBaseUrl = env['OSRM_BASE_URL'] ?? osrmBaseUrl;
+    hiveBoxName = env['HIVE_BOX_NAME'] ?? hiveBoxName;
+    notificationIcon = env['NOTIFICATION_ICON'] ?? notificationIcon;
+    defaultNightMode = (env['DEFAULT_NIGHT_MODE']?.toLowerCase() == 'true');
+    
     if (kDebugMode) {
-      // ignore: avoid_print
-      print('AppConfig loaded: ORS key set: ${orsApiKey.isNotEmpty}');
+      print("AppConfig loaded: ORS key set = ${orsApiKey.isNotEmpty}");
     }
   }
 }

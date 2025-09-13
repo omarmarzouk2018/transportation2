@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/lat_lng.dart';
 import 'mainCard.dart';
-import 'package:provider/provider.dart';
-import '../providers/route_provider.dart';
 
 class DestinationCard extends StatelessWidget {
   final LatLng dest;

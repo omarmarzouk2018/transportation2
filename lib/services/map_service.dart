@@ -9,8 +9,8 @@ import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import '../providers/tracking_provider.dart';
 import '../services/dimensions.dart';
 import 'package:provider/provider.dart';
-import '../providers/station_provider.dart';
 import '../providers/route_provider.dart';
+import 'package:http/io_client.dart';
 
 class MapService {
   MapService._privateConstructor();
@@ -23,13 +23,13 @@ class MapService {
 
   // create one time here avoid rebuild at every build
   final FMTCTileProvider _tileProvider = FMTCTileProvider.new(
-    stores: {
-      'mapStore': BrowseStoreStrategy.readUpdateCreate,
-    },
-    loadingStrategy: BrowseLoadingStrategy.cacheFirst,
-    recordHitsAndMisses: true,
-    cachedValidDuration: const Duration(days: 30),
-  );
+      stores: {
+        'mapStore': BrowseStoreStrategy.readUpdateCreate,
+      },
+      loadingStrategy: BrowseLoadingStrategy.cacheFirst,
+      recordHitsAndMisses: true,
+      cachedValidDuration: const Duration(days: 30),
+      httpClient: IOClient());
 
   TileLayer buildTileLayer(bool nightMode) {
     return TileLayer(

@@ -6,48 +6,11 @@ class TransportLine {
   final double price;
   final List<StationModel> stations;
 
-  TransportLine(
+  const TransportLine(
       {required this.id,
       required this.name,
       required this.price,
       required this.stations});
-
-  static final abuQir_manshia = TransportLine(
-    id: 'L1',
-    name: "ابوقير-منشية",
-    price: 10.0,
-    stations: [
-      StationModel.abuQir,
-      StationModel.edara,
-      StationModel.mandarah,
-      StationModel.manshia
-    ],
-  );
-
-  static final abuQir_victoria = TransportLine(
-    id: 'L2',
-    name: 'ابوقير-فيكتوريا',
-    price: 10.0,
-    stations: [
-      StationModel.abuQir,
-      StationModel.edara,
-      StationModel.mandarah,
-      StationModel.victoria
-    ],
-  );
-
-  static final manshia_bahary = TransportLine(
-    id: 'L3',
-    name: 'منشية-بحري',
-    price: 10.0,
-    stations: [StationModel.manshia, StationModel.bahary],
-  );
-
-  static final List<TransportLine> lines = [
-    TransportLine.abuQir_manshia,
-    TransportLine.abuQir_victoria,
-    TransportLine.manshia_bahary,
-  ];
 }
 
   // factory TransportLine.fromJson(Map<String, dynamic> json) {

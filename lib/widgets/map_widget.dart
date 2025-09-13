@@ -1,8 +1,11 @@
 import 'package:alex_transit/config/app_config.dart';
+import 'package:alex_transit/data/line_segment_data.dart';
+import 'package:alex_transit/models/line_segment_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:provider/provider.dart';
+import '../data/stations_data.dart';
 import '../models/lat_lng.dart';
 import '../models/leg_model.dart'; // where LegType is defined
 import '../models/station_model.dart'; // where StationModel is defined
@@ -89,14 +92,15 @@ class _MapWidgetState extends State<MapWidget> {
     // );
     // }
     // }
+
     Future<void> _loadRoute() async {
       final start = [
-        StationModel.sidiGaber.location.longitude,
-        StationModel.sidiGaber.location.latitude,
+        StationsData.sidiGaber.location.longitude,
+        StationsData.sidiGaber.location.latitude,
       ]; // [lng, lat]
       final end = [
-        StationModel.victoria.location.longitude,
-        StationModel.victoria.location.latitude,
+        StationsData.egyptStation.location.longitude,
+        StationsData.egyptStation.location.latitude,
       ]; // [lng, lat]
 
       final coords = await getRouteFromORS(start: start, end: end);
@@ -110,13 +114,14 @@ class _MapWidgetState extends State<MapWidget> {
 
     // _loadRoute();
 
-    // polylines.add(
-    //   Polyline(
-    //     points: routePoints,
-    //     strokeWidth: 4,
-    //     color: Colors.red,
-    //   ),
-    // );
+    final polylines = LineSegmentData.segments.map((segment) {
+      return Polyline(
+        points: segment.coordinations,
+        strokeWidth: 2,
+        color: Colors.red,
+      );
+    }).toList();
+
     return FlutterMap(
       mapController: MapService.instance.mapController,
       options: MapOptions(
@@ -129,7 +134,7 @@ class _MapWidgetState extends State<MapWidget> {
 
           _routeProvider
               .setDestination(LatLng(latlng.latitude, latlng.longitude));
-          _loadRoute();
+          // _loadRoute();
 
           if (_routeProvider.destination != null) {
             _destinationMarker =
@@ -139,14 +144,15 @@ class _MapWidgetState extends State<MapWidget> {
       ),
       children: [
         tileLayer,
-        if (routePoints.isNotEmpty)
-          PolylineLayer(polylines: [
+        PolylineLayer(polylines: [
+          if (routePoints.isNotEmpty)
             Polyline(
               points: routePoints,
-              strokeWidth: 4,
+              strokeWidth: 1,
               color: Colors.blue,
             ),
-          ]),
+          if (polylines.isNotEmpty) ...polylines
+        ]),
         Consumer<RouteProvider>(
           builder: (context, rp, _) {
             return MarkerLayer(markers: [

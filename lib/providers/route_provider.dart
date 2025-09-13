@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../data/stations_data.dart';
 import '../models/route_model.dart';
 import '../services/routing_service.dart';
 import '../services/storage_service.dart';
@@ -35,7 +36,7 @@ class RouteProvider extends ChangeNotifier {
           StationsRepository.getLastKnownLocation() ??
               LatLng(31.2001, 29.9187));
       // final stations = await StationsRepository.loadStations();
-      final stations = StationModel.stationsList;
+      final stations = StationsData.stationsList;
       final boarding = _routing.findNearestStation(origin, stations);
       final alight = _routing.findNearestStation(destination, stations);
       final route = await _routing.composeMultiLegRoute(

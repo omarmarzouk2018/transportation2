@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import '../data/stations_data.dart';
 import '../models/station_model.dart';
 
 class StationProvider with ChangeNotifier {
-  List<StationModel> _stations = StationModel.stationsList;
+  List<StationModel> _stations = StationsData.stationsList;
   List<StationModel> get stations => _stations;
 
   StationModel? _selectedStation;
@@ -38,9 +39,9 @@ class StationProvider with ChangeNotifier {
   void updateStationSelection(String? stationId, bool isSelected) {
     if (isSelected && stationId != null) {
       // ابحث عن المحطة بناءً على المعرف
-      final station = StationModel.stationsList.firstWhere(
+      final station = StationsData.stationsList.firstWhere(
         (s) => s.id == stationId,
-        orElse: () => StationModel.stationsList.first,
+        orElse: () => StationsData.stationsList.first,
       );
       selectStation(station);
     } else {
